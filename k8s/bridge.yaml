@@ -1,0 +1,67 @@
+# The bridge, on the kind control plane. It may write exactly one thing: the
+# audience's ModelDeployment. The setup creates the inference-vote-bridge Secret
+# with the voting app's URL and the bridge token.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-team
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inference-vote-bridge
+  namespace: ml-team
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: inference-vote-bridge
+  namespace: ml-team
+rules:
+- apiGroups: ["modelplane.ai"]
+  resources: ["modeldeployments"]
+  resourceNames: ["audience"]
+  verbs: ["get", "patch"]
+# Server-side apply of an object that does not exist yet is a create, which
+# resourceNames cannot restrict.
+- apiGroups: ["modelplane.ai"]
+  resources: ["modeldeployments"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: inference-vote-bridge
+  namespace: ml-team
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: inference-vote-bridge
+subjects:
+- kind: ServiceAccount
+  name: inference-vote-bridge
+  namespace: ml-team
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-vote-bridge
+  namespace: ml-team
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inference-vote-bridge
+  template:
+    metadata:
+      labels:
+        app: inference-vote-bridge
+    spec:
+      serviceAccountName: inference-vote-bridge
+      containers:
+      - name: bridge
+        image: ghcr.io/vfarcic/inference-vote:latest
+        args: [bridge]
+        envFrom:
+        - secretRef:
+            name: inference-vote-bridge

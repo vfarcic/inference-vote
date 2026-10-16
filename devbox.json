@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.17.2/.schema/devbox.schema.json",
+  "packages": [
+    "nushell@latest",
+    "kind@0.31.0",
+    "kubernetes-helm@3.20.1",
+    "kubectl@1.35.3",
+    "google-cloud-sdk@latest",
+    "awscli2@latest",
+    "jq@1.8.1",
+    "go@1.24"
+  ],
+  "shell": {
+    "init_hook": [
+      "[ -f .env ] && source .env || true"
+    ],
+    "scripts": {}
+  }
+}

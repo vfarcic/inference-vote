@@ -1,0 +1,28 @@
+# Optional: the weights on shared cluster storage (Filestore Enterprise on GKE,
+# EFS on EKS), one cache per precision. Applied only by `setup --cache`, since
+# whether reading from it beats a fresh download is something to measure.
+#
+# The draft model for speculative decoding is not cached: Modelplane stages one
+# cache per deployment (modelplaneai/modelplane#281), and at 0.6B parameters it
+# downloads in seconds anyway.
+apiVersion: modelplane.ai/v1alpha1
+kind: ModelCache
+metadata:
+  name: qwen3-8b
+  namespace: ml-team
+spec:
+  source: HuggingFace
+  huggingFace:
+    repo: Qwen/Qwen3-8B
+    sizeGiB: 30
+---
+apiVersion: modelplane.ai/v1alpha1
+kind: ModelCache
+metadata:
+  name: qwen3-8b-fp8
+  namespace: ml-team
+spec:
+  source: HuggingFace
+  huggingFace:
+    repo: Qwen/Qwen3-8B-FP8
+    sizeGiB: 20

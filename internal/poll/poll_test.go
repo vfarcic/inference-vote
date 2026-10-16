@@ -1,0 +1,102 @@
+package poll
+
+import (
+	"testing"
+
+	"github.com/vfarcic/inference-vote/internal/choice"
+)
+
+func mustParse(t *testing.T, s string) choice.Config {
+	t.Helper()
+	c, err := choice.Parse(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+// run votes through all three questions, each voter list giving that
+// question's answers, and applies.
+func run(t *testing.T, p *Poll, answers [3][]choice.Option) State {
+	t.Helper()
+	p.Next() // open question 1
+	for q, list := range answers {
+		for i, o := range list {
+			if !p.Vote(string(rune('a'+i)), q, o) {
+				t.Fatalf("vote %d on question %d was refused", i, q)
+			}
+		}
+		p.Next() // close
+		p.Next() // open the next, or apply after the last
+	}
+	return p.Snapshot()
+}
+
+func TestMajorityWins(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	s := run(t, p, [3][]choice.Option{
+		{choice.A, choice.A, choice.B},
+		{choice.A, choice.B, choice.A},
+		{choice.B, choice.B, choice.A},
+	})
+	if s.Phase != Deploying || s.Audience != "AAB" || s.Deployed != "AAB" || s.Swapped {
+		t.Fatalf("got phase %s audience %s deployed %s swapped %v", s.Phase, s.Audience, s.Deployed, s.Swapped)
+	}
+	if c, ok := p.Desired(); !ok || c.String() != "AAB" {
+		t.Fatalf("Desired = %v %v", c, ok)
+	}
+}
+
+func TestPickingTheOptimizedDeploysTheOpposite(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	s := run(t, p, [3][]choice.Option{{choice.B}, {choice.B}, {choice.A}})
+	if s.Audience != "BBA" || s.Deployed != "AAB" || !s.Swapped {
+		t.Fatalf("audience %s deployed %s swapped %v", s.Audience, s.Deployed, s.Swapped)
+	}
+}
+
+func TestTieGoesAgainstTheOptimized(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	s := run(t, p, [3][]choice.Option{
+		{choice.A, choice.B},
+		{choice.A, choice.B},
+		{choice.A, choice.B},
+	})
+	if s.Audience != "AAB" {
+		t.Fatalf("ties should go against BBA, got %s", s.Audience)
+	}
+}
+
+func TestChangingAVote(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	p.Next()
+	p.Vote("x", 0, choice.A)
+	p.Vote("x", 0, choice.B)
+	if got := p.Snapshot().Tally[0]; got != [2]int{0, 1} {
+		t.Fatalf("tally %v", got)
+	}
+}
+
+func TestVotesOutsideTheOpenQuestionAreIgnored(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	if p.Vote("x", 0, choice.A) {
+		t.Fatal("voted in the lobby")
+	}
+	p.Next()
+	if p.Vote("x", 1, choice.A) {
+		t.Fatal("voted on a question that is not open")
+	}
+}
+
+func TestReadyWhenPodsAre(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
+	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "loading model"}})
+	if p.Snapshot().Phase != Deploying {
+		t.Fatal("ready before every pod was")
+	}
+	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "ready"}})
+	if p.Snapshot().Phase != Ready {
+		t.Fatal("not ready after every pod was")
+	}
+}

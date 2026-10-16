@@ -1,0 +1,47 @@
+# Pulls the vLLM image onto every GPU node during setup, so the audience's
+# deployment never waits on an 8GB download. Every one of the eight configs uses
+# the same image, which is what makes this possible at all.
+#
+# The init container pulls and exits; the pause container keeps the pod, and with
+# it the image, on the node.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: prepull-vllm
+  namespace: inference-vote
+spec:
+  selector:
+    matchLabels:
+      app: prepull-vllm
+  template:
+    metadata:
+      labels:
+        app: prepull-vllm
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            # GKE and EKS label GPU nodes differently.
+            - matchExpressions:
+              - key: cloud.google.com/gke-accelerator
+                operator: Exists
+            - matchExpressions:
+              - key: k8s.amazonaws.com/accelerator
+                operator: Exists
+            - matchExpressions:
+              - key: nvidia.com/gpu.present
+                operator: Exists
+      tolerations:
+      - operator: Exists
+      initContainers:
+      - name: pull
+        image: vllm/vllm-openai:v0.27.1
+        command: ["sh", "-c", "true"]
+      containers:
+      - name: hold
+        image: registry.k8s.io/pause:3.10
+        resources:
+          requests:
+            cpu: 1m
+            memory: 4Mi

@@ -1,0 +1,104 @@
+# The voting app, on the inference cluster Modelplane created. It is the only
+# thing in the demo the internet can reach directly: phones open it from the QR
+# code, and the bridge on the presenter's laptop polls it.
+#
+# The setup fills in the image tag and creates the inference-vote Secret
+# (presenter and bridge tokens, gateway URL and keys, domain).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: inference-vote
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: inference-vote
+  namespace: inference-vote
+---
+# Read-only, and only pods: enough to show the audience's engines coming up.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: inference-vote
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: inference-vote
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: inference-vote
+subjects:
+- kind: ServiceAccount
+  name: inference-vote
+  namespace: inference-vote
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-vote
+  namespace: inference-vote
+spec:
+  # One replica: votes live in memory.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: inference-vote
+  template:
+    metadata:
+      labels:
+        app: inference-vote
+    spec:
+      serviceAccountName: inference-vote
+      containers:
+      - name: app
+        image: ghcr.io/vfarcic/inference-vote:latest
+        args: [serve]
+        envFrom:
+        - secretRef:
+            name: inference-vote
+        ports:
+        - name: http
+          containerPort: 80
+        - name: https
+          containerPort: 443
+        readinessProbe:
+          tcpSocket:
+            port: https
+        volumeMounts:
+        - name: certs
+          mountPath: /tmp/certs
+        securityContext:
+          # Binding 80 and 443 directly, so no ingress controller sits in the way.
+          capabilities:
+            add: [NET_BIND_SERVICE]
+      volumes:
+      - name: certs
+        emptyDir: {}
+---
+# A LoadBalancer straight to the app: it terminates TLS itself with a Let's
+# Encrypt certificate, so there is no ingress controller or cert-manager to
+# install and wait for.
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-vote
+  namespace: inference-vote
+spec:
+  type: LoadBalancer
+  selector:
+    app: inference-vote
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  - name: https
+    port: 443
+    targetPort: https

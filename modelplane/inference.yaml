@@ -1,0 +1,69 @@
+# What both clouds share: the gateway the audience and the load test call,
+# the two models they can name, and where the metrics go.
+#
+# The optimized ModelDeployment is not in here. The setup renders it with
+# `inference-vote render`, the same code the bridge uses for the audience's, so
+# the two can only ever differ in the three answers.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-team
+---
+# One gateway, on the same cluster that serves. Callers authenticate with the
+# keys in the inference-vote-keys Secret, which the setup generates: one for the
+# audience's chat and one for the load test, so Datadog can tell them apart.
+apiVersion: modelplane.ai/v1alpha1
+kind: InferenceGateway
+metadata:
+  name: public
+spec:
+  clusterName: vote
+  auth:
+    method: APIKey
+    apiKey:
+      secretSelector:
+        matchLabels:
+          inference-vote/keys: "true"
+---
+# Callers name these as ml-team/optimized and ml-team/audience.
+apiVersion: modelplane.ai/v1alpha1
+kind: ModelService
+metadata:
+  name: optimized
+  namespace: ml-team
+spec:
+  endpoints:
+  - name: optimized
+    selector:
+      matchLabels:
+        modelplane.ai/deployment: optimized
+---
+apiVersion: modelplane.ai/v1alpha1
+kind: ModelService
+metadata:
+  name: audience
+  namespace: ml-team
+spec:
+  endpoints:
+  - name: audience
+    selector:
+      matchLabels:
+        modelplane.ai/deployment: audience
+---
+# Every inference cluster's collector ships the fleet's metrics to Datadog.
+# The API key comes from the datadog Secret the setup creates in
+# modelplane-system; Modelplane copies it to each cluster.
+apiVersion: modelplane.ai/v1alpha1
+kind: TelemetryDestination
+metadata:
+  name: datadog
+spec:
+  sinks:
+  - name: datadog
+    type: datadog
+    secretRef:
+      name: datadog
+    config:
+      api:
+        key: ${env:DD_API_KEY}
+        site: ${env:DD_SITE}

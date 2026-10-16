@@ -1,0 +1,53 @@
+# Google: two g2-standard-24 nodes, two NVIDIA L4s each. Four GPUs in all, two
+# for the optimized deployment and two for the audience's.
+#
+# Two GPUs on one node is what makes the tensor-parallel answer to question 2
+# possible: an engine split across two cards needs both in the same machine.
+apiVersion: modelplane.ai/v1alpha1
+kind: InferenceClass
+metadata:
+  name: gke-l4-2x-g2
+spec:
+  description: "GKE g2-standard-24, 2x NVIDIA L4"
+  provisioning:
+    provider: GKE
+    gke:
+      machineType: g2-standard-24
+      diskSizeGb: 200
+      accelerator:
+        type: nvidia-l4
+        count: 2
+  devices:
+  - name: gpu
+    claim: DRA
+    driver: gpu.nvidia.com
+    deviceClassName: gpu.nvidia.com
+    count: 2
+    attributes:
+      architecture: { string: Ada Lovelace }
+    capacity:
+      # The L4's real usable VRAM as the NVIDIA DRA driver reports it, not the
+      # nominal 24GB.
+      memory: { value: "23034Mi" }
+---
+# Fixed at two nodes, with no room to scale: a GPU node that scales from zero
+# arrives empty, and a cold node is the slowest thing that could happen on stage.
+apiVersion: modelplane.ai/v1alpha1
+kind: InferenceCluster
+metadata:
+  name: vote
+  labels:
+    modelplane.ai/region: us-central
+spec:
+  cluster:
+    source: GKE
+    gke:
+      region: us-central1
+  nodePools:
+  - name: gpu-l4
+    className: gke-l4-2x-g2
+    nodeCount: 2
+    minNodeCount: 2
+    maxNodeCount: 2
+    zones:
+    - us-central1-a

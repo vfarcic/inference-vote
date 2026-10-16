@@ -1,0 +1,9 @@
+# kind v0.31+ ships containerd 2.2.0 as the default node image, which breaks
+# Modelplane. Pin kind v0.30.0's default image (containerd 2.1.4) instead.
+#
+# kind create cluster --name modelplane --config kind.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  image: kindest/node:v1.34.0@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a

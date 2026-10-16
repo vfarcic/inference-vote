@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Presenter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="presenter">
+  <header>
+    <span id="phase" class="pill">...</span>
+    <span class="spacer"></span>
+    <input id="token" type="password" placeholder="presenter token" autocomplete="off">
+    <button id="reset" class="ghost" title="Click twice to reset every vote">Reset</button>
+    <button id="next">Next</button>
+  </header>
+  <main id="app"></main>
+  <script src="app.js"></script>
+  <script>InferenceVote.presenter(document.getElementById("app"));</script>
+</body>
+</html>
