@@ -23,23 +23,25 @@ def main [] {}
 # > ./dot.nu setup google --domain vote.devopstoolkit.ai
 # > ./dot.nu setup aws --domain vote.devopstoolkit.ai --acme-staging
 # > ./dot.nu setup google --domain vote.devopstoolkit.ai --no-datadog
+# > ./dot.nu setup google    # testing: <load balancer IP>.nip.io, no DNS to set
 def --env "main setup" [
     provider: string             # Cloud provider. `google` or `aws`
-    --domain = ""                # Public name for the voting app, such as vote.devopstoolkit.ai
+    --domain = ""                # Public name for the voting app, such as vote.devopstoolkit.ai. Empty uses <IP>.nip.io (Google only)
     --optimized = "BBA"          # The config the audience is compared against, one letter per question
     --cache                      # Serve weights from a ModelCache instead of downloading them on every start
     --acme-staging               # Use Let's Encrypt staging. For rehearsals: real certificates are 5 per name per week
     --billing-account = ""       # Google billing account to link. Auto-detected when empty
     --image = $IMAGE             # The inference-vote image
     --no-datadog                 # Do not send metrics to Datadog, so no API key is needed
+    --zone = ""                  # The zone for the GPU nodes. Defaults to us-central1-a on Google, us-east-1b on AWS. Change it when that zone is out of GPUs
 ] {
 
     if not ($provider in ["google" "aws"]) {
         print $"(ansi red_bold)($provider)(ansi reset) is not supported. Use `google` or `aws`."
         exit 1
     }
-    if $domain == "" {
-        print $"(ansi red_bold)--domain is required(ansi reset): the phones reach the voting app by name, over HTTPS."
+    if $domain == "" and $provider != "google" {
+        print $"(ansi red_bold)--domain is required on ($provider)(ansi reset): its load balancer has a name rather than an IP, so nip.io cannot point to it."
         exit 1
     }
 
@@ -51,6 +53,7 @@ def --env "main setup" [
 
     rm --force .env
     $"export PROVIDER=($provider)\n" | save --append .env
+    $env.PROVIDER = $provider
 
     let creds = (main get creds $provider)
 
@@ -63,12 +66,9 @@ def --env "main setup" [
     }
 
     # Two gateway callers, so Datadog can tell the audience's chat from the load
-    # test, and two tokens the app checks: one for the presenter, one for the bridge.
+    # test.
     let audience_key = (random chars --length 32)
     let load_key = (random chars --length 32)
-    let presenter_token = (random chars --length 12)
-    let bridge_token = (random chars --length 32)
-    $"export PRESENTER_TOKEN=($presenter_token)\n" | save --append .env
 
     (
         kubectl --namespace modelplane-system create secret generic inference-vote-keys
@@ -78,7 +78,19 @@ def --env "main setup" [
     ) | kubectl apply --filename -
     kubectl --namespace modelplane-system label secret inference-vote-keys inference-vote/keys=true --overwrite
 
-    kubectl apply --filename $"modelplane/($provider)/platform.yaml"
+    # GPUs run out one zone at a time, so the zone is the first thing to change
+    # when nodes stay stuck provisioning.
+    let default_zone = if $provider == "google" { "us-central1-a" } else { "us-east-1b" }
+    let zone = if $zone == "" { $default_zone } else { $zone }
+    # Modelplane counts capacity in whole nodes, not GPUs: every engine pod that
+    # claims a GPU takes a node to itself. Two copies take two nodes, one engine
+    # split across both GPUs takes one. The audience may pick two copies, so
+    # there are two nodes for them on top of what the optimized config takes.
+    let nodes = 2 + (if ($optimized | str substring 1..1) == "B" { 2 } else { 1 })
+    open --raw $"modelplane/($provider)/platform.yaml"
+        | str replace $"- ($default_zone)" $"- ($zone)"
+        | str replace --all --regex '(?m)^(\s+(?:min|max)?[nN]odeCount): \d+' $"${1}: ($nodes)"
+        | kubectl apply --filename -
     kubectl apply --filename modelplane/inference.yaml
 
     if $datadog {
@@ -103,7 +115,45 @@ def --env "main setup" [
 Modelplane is creating the inference cluster. (ansi yellow_bold)This takes 15 to 25 minutes(ansi reset)."
     kubectl wait inferencecluster/vote --for=condition=Ready --timeout=60m
 
-    main get workload-kubeconfig
+    (
+        main setup app --domain $domain --optimized $optimized --cache=$cache
+            --acme-staging=$acme_staging --image $image
+    )
+
+    main print source
+
+}
+
+# Deploys the voting app and the bridge onto a cluster setup created
+#
+# Setup runs it last. Run it on its own to finish a setup that stopped after
+# Modelplane created the cluster, without creating a new one.
+#
+# Examples:
+# > ./dot.nu setup app
+# > ./dot.nu setup app --domain vote.devopstoolkit.ai
+def --env "main setup app" [
+    --domain = ""                # Public name for the voting app. Empty uses <IP>.nip.io (Google only)
+    --optimized = "BBA"          # The config the audience is compared against, one letter per question
+    --cache                      # Must match setup's --cache
+    --acme-staging               # Use Let's Encrypt staging
+    --image = $IMAGE             # The inference-vote image
+] {
+
+    let provider = ($env.PROVIDER? | default "")
+    main get workload-kubeconfig --provider $provider
+
+    # The gateway keys setup created, and two tokens the app checks: one for the
+    # presenter, one for the bridge.
+    let keys = (kubectl --namespace modelplane-system get secret inference-vote-keys --output json | from json | get data)
+    let audience_key = ($keys.audience | decode base64 | decode)
+    let load_key = ($keys.loadtest | decode base64 | decode)
+    let presenter_token = if "PRESENTER_TOKEN" in $env { $env.PRESENTER_TOKEN } else {
+        let token = (random chars --length 12)
+        $"export PRESENTER_TOKEN=($token)\n" | save --append .env
+        $token
+    }
+    let bridge_token = (random chars --length 32)
 
     kubectl wait inferencegateway/public --for=condition=Ready --timeout=20m
     let gateway = (kubectl get inferencegateway public --output jsonpath="{.status.address}")
@@ -112,6 +162,14 @@ Modelplane is creating the inference cluster. (ansi yellow_bold)This takes 15 to
     open --raw k8s/vote.yaml | str replace --all $IMAGE $image
         | kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename -
     kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename k8s/prepull.yaml
+
+    # The voting app waits for its Secret, which needs the domain, which on
+    # nip.io needs the load balancer's address.
+    let address = (main get vote-address)
+    let nip = $domain == ""
+    let domain = if $nip { $"($address).nip.io" } else { $domain }
+    $"export DOMAIN=($domain)\n" | save --append .env
+
     (
         kubectl --kubeconfig $WORKLOAD_KUBECONFIG --namespace inference-vote
             create secret generic inference-vote
@@ -137,24 +195,23 @@ Modelplane is creating the inference cluster. (ansi yellow_bold)This takes 15 to
     ) | kubectl apply --filename -
     open --raw k8s/bridge.yaml | str replace --all $IMAGE $image | kubectl apply --filename -
 
-    let address = (main get vote-address)
-
     let record = if ($address | str replace --all --regex '[0-9.]' '' | is-empty) {
         $"an (ansi yellow_bold)A(ansi reset) record for ($domain) pointing to (ansi yellow_bold)($address)(ansi reset)"
     } else {
         $"a (ansi yellow_bold)CNAME(ansi reset) record for ($domain) pointing to (ansi yellow_bold)($address)(ansi reset)"
     }
 
-    print $"
+    if not $nip {
+        print $"
 In GoDaddy, set ($record), with a low TTL such as 600 seconds.
-The voting app requests its certificate on its own once the name resolves.
+The voting app requests its certificate on its own once the name resolves."
+    }
 
+    print $"
 Audience:  https://($domain)
-Presenter: https://($domain)/presenter  (token: (ansi yellow_bold)($presenter_token)(ansi reset))
+Presenter: https://($domain)/presenter  \(token: (ansi yellow_bold)($presenter_token)(ansi reset)\)
 Optimized: ($optimized)
 "
-
-    main print source
 
 }
 
@@ -164,7 +221,12 @@ def --env "main create control-plane" [] {
     $env.KUBECONFIG = $"($env.PWD)/kubeconfig-kind.yaml"
     $"export KUBECONFIG=($env.KUBECONFIG)\n" | save --append .env
 
-    kind create cluster --name $KIND_CLUSTER --config modelplane/kind.yaml
+    # Re-running setup after a failure keeps the control plane already created.
+    if ($KIND_CLUSTER in (kind get clusters | lines)) {
+        kind export kubeconfig --name $KIND_CLUSTER
+    } else {
+        kind create cluster --name $KIND_CLUSTER --config modelplane/kind.yaml
+    }
 
     helm repo add crossplane-stable https://charts.crossplane.io/stable --force-update
     (
@@ -289,18 +351,29 @@ def "wait crd" [name: string] {
 
 # Writes the inference cluster's kubeconfig from the Secret Modelplane keeps for it
 #
-# On EKS the token in it is short-lived, so fetch it again rather than reusing
-# an old file.
-def "main get workload-kubeconfig" [] {
+# On Google that kubeconfig carries no credentials, so it gets an access token
+# from the current gcloud login. The token, like EKS's, lasts about an hour, so
+# fetch it again rather than reusing an old file.
+def "main get workload-kubeconfig" [
+    --provider = ""   # `google` or `aws`. Defaults to PROVIDER from .env
+] {
+    let provider = if $provider == "" { $env.PROVIDER? | default "" } else { $provider }
+    # Modelplane names it vote-kubeconfig-<suffix>.
     let secrets = (
-        kubectl get secrets --all-namespaces --output json | from json | get items
-            | where { |s| ($s.metadata.name | str ends-with "-kubeconfig") and ($s.metadata.name | str contains "vote") }
+        kubectl --namespace modelplane-system get secrets --output json | from json | get items
+            | where { |s| ($s.metadata.name | str starts-with "vote-kubeconfig") and ("kubeconfig" in $s.data) }
     )
     if ($secrets | is-empty) {
         print $"(ansi red_bold)No kubeconfig Secret for the vote cluster yet(ansi reset). Is the InferenceCluster ready?"
         exit 1
     }
-    $secrets | first | get data.kubeconfig | decode base64 | save --force $WORKLOAD_KUBECONFIG
+    mut config = ($secrets | first | get data.kubeconfig | decode base64 | decode | from yaml)
+    if $provider == "google" {
+        let token = (gcloud auth print-access-token | str trim)
+        $config.users = ($config.users | each { |u| $u | upsert user { token: $token } })
+    }
+    $config | to yaml | save --force $WORKLOAD_KUBECONFIG
+    chmod 600 $WORKLOAD_KUBECONFIG
     print $"Wrote (ansi yellow_bold)($WORKLOAD_KUBECONFIG)(ansi reset)"
 }
 

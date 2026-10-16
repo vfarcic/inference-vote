@@ -1,5 +1,4 @@
-# Google: two g2-standard-24 nodes, two NVIDIA L4s each. Four GPUs in all, two
-# for the optimized deployment and two for the audience's.
+# Google: g2-standard-24 nodes, two NVIDIA L4s each.
 #
 # Two GPUs on one node is what makes the tensor-parallel answer to question 2
 # possible: an engine split across two cards needs both in the same machine.
@@ -30,8 +29,12 @@ spec:
       # nominal 24GB.
       memory: { value: "23034Mi" }
 ---
-# Fixed at two nodes, with no room to scale: a GPU node that scales from zero
-# arrives empty, and a cold node is the slowest thing that could happen on stage.
+# Fixed size, with no room to scale: a GPU node that scales from zero arrives
+# empty, and a cold node is the slowest thing that could happen on stage.
+#
+# Setup replaces the counts. Modelplane counts capacity in whole nodes, not GPUs,
+# so each engine pod takes a node: 3 nodes when the optimized config is one
+# engine across both GPUs, 4 when it is two copies.
 apiVersion: modelplane.ai/v1alpha1
 kind: InferenceCluster
 metadata:

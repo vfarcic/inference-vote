@@ -1,6 +1,9 @@
-# AWS: one g6.12xlarge, four NVIDIA L4s. Two for the optimized deployment and
-# two for the audience's, all in one machine, so either answer to question 2
-# (one engine across two cards, or one copy per card) fits.
+# AWS: g6.12xlarge nodes, four NVIDIA L4s each.
+#
+# NOT VERIFIED, AND WASTEFUL AS IT STANDS. Modelplane counts capacity in whole
+# nodes, not GPUs, so each engine pod takes a whole g6.12xlarge, and setup sizes
+# the pool to 3 or 4 of them. AWS has no two-L4 instance, so this needs a
+# rethink before it is a usable fallback.
 #
 # A g6.12xlarge is 48 vCPUs. New accounts usually have a lower G-instance vCPU
 # quota than that, so request an increase well before the talk.
