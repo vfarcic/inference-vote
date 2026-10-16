@@ -22,6 +22,7 @@ def main [] {}
 # Examples:
 # > ./dot.nu setup google --domain vote.devopstoolkit.ai
 # > ./dot.nu setup aws --domain vote.devopstoolkit.ai --acme-staging
+# > ./dot.nu setup google --domain vote.devopstoolkit.ai --no-datadog
 def --env "main setup" [
     provider: string             # Cloud provider. `google` or `aws`
     --domain = ""                # Public name for the voting app, such as vote.devopstoolkit.ai
@@ -30,6 +31,7 @@ def --env "main setup" [
     --acme-staging               # Use Let's Encrypt staging. For rehearsals: real certificates are 5 per name per week
     --billing-account = ""       # Google billing account to link. Auto-detected when empty
     --image = $IMAGE             # The inference-vote image
+    --no-datadog                 # Do not send metrics to Datadog, so no API key is needed
 ] {
 
     if not ($provider in ["google" "aws"]) {
@@ -41,7 +43,8 @@ def --env "main setup" [
         exit 1
     }
 
-    let dd_api_key = if "DD_API_KEY" in $env { $env.DD_API_KEY } else {
+    let datadog = not $no_datadog
+    let dd_api_key = if not $datadog { "" } else if "DD_API_KEY" in $env { $env.DD_API_KEY } else {
         input --suppress-output $"(ansi green_bold)Datadog API key: (ansi reset)"
     }
     let dd_site = ($env.DD_SITE? | default "datadoghq.com")
@@ -75,15 +78,18 @@ def --env "main setup" [
     ) | kubectl apply --filename -
     kubectl --namespace modelplane-system label secret inference-vote-keys inference-vote/keys=true --overwrite
 
-    (
-        kubectl --namespace modelplane-system create secret generic datadog
-            --from-literal $"DD_API_KEY=($dd_api_key)"
-            --from-literal $"DD_SITE=($dd_site)"
-            --dry-run=client --output yaml
-    ) | kubectl apply --filename -
-
     kubectl apply --filename $"modelplane/($provider)/platform.yaml"
     kubectl apply --filename modelplane/inference.yaml
+
+    if $datadog {
+        (
+            kubectl --namespace modelplane-system create secret generic datadog
+                --from-literal $"DD_API_KEY=($dd_api_key)"
+                --from-literal $"DD_SITE=($dd_site)"
+                --dry-run=client --output yaml
+        ) | kubectl apply --filename -
+        kubectl apply --filename modelplane/datadog.yaml
+    }
     if $cache {
         kubectl apply --filename modelplane/cache.yaml
     }

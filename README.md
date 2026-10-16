@@ -45,8 +45,8 @@ vLLM. `inference-vote render --config BBA` prints any of them.
 
 ## Before the talk
 
-You need Docker (give it 8 GB of memory), Devbox, a Datadog API key, and an
-account on the cloud you set up on. On AWS, request a G-instance vCPU quota of
+You need Docker (give it 8 GB of memory), Devbox, a Datadog API key (unless
+you pass `--no-datadog`), and an account on the cloud you set up on. On AWS, request a G-instance vCPU quota of
 at least 48 for `g6.12xlarge`.
 
 ```sh
@@ -56,6 +56,11 @@ export DD_API_KEY=...
 
 ./dot.nu setup google --domain vote.devopstoolkit.ai
 ```
+
+Setup asks for the key if `DD_API_KEY` is not set. Accounts outside Datadog's
+US1 site also need `DD_SITE`, such as `datadoghq.eu`. `--no-datadog` skips
+Datadog altogether: the vote, the deployments, chat, and `measure` do not depend
+on it.
 
 `aws` instead of `google` is the fallback when one cloud has no GPUs. Setup
 takes 20 to 30 minutes, most of it Modelplane creating the cluster. At the end

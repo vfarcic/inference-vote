@@ -1,0 +1,17 @@
+# Every inference cluster's collector ships the fleet's metrics to Datadog.
+# The API key comes from the datadog Secret the setup creates in
+# modelplane-system; Modelplane copies it to each cluster.
+apiVersion: modelplane.ai/v1alpha1
+kind: TelemetryDestination
+metadata:
+  name: datadog
+spec:
+  sinks:
+  - name: datadog
+    type: datadog
+    secretRef:
+      name: datadog
+    config:
+      api:
+        key: ${env:DD_API_KEY}
+        site: ${env:DD_SITE}
