@@ -432,12 +432,16 @@ def "main measure" [
 
 # Clears the audience's deployment and every vote, ready for the talk
 #
-# Restarting the voting app drops its in-memory votes; restarting the bridge
-# drops its memory of what it last applied.
+# The votes are cleared through the presenter API rather than by restarting the
+# voting app: the app keeps its certificate across restarts, but there is no
+# reason to risk it. Restarting the bridge drops its memory of what it last
+# applied.
 def "main reset" [] {
     kubectl --namespace ml-team delete modeldeployment audience --ignore-not-found --wait=true
-    main get workload-kubeconfig
-    kubectl --kubeconfig $WORKLOAD_KUBECONFIG --namespace inference-vote rollout restart deployment inference-vote
+    (
+        http post --headers { Authorization: $"Bearer ($env.PRESENTER_TOKEN)" }
+            $"https://($env.DOMAIN)/api/presenter/reset" ""
+    ) | ignore
     kubectl --namespace ml-team rollout restart deployment inference-vote-bridge
 }
 

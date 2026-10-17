@@ -115,10 +115,20 @@ func serve(ctx context.Context, args []string) error {
 		return nil
 	}
 
+	var cache autocert.Cache = autocert.DirCache(env("CERT_CACHE", "/tmp/certs"))
+	if k != nil {
+		// In a Secret, so a restart reuses the certificate. Staging gets its
+		// own, since its certificates are no use in production.
+		name := "inference-vote-certs"
+		if *staging {
+			name += "-staging"
+		}
+		cache = kube.SecretCache{Client: k, Namespace: env("POD_NAMESPACE", "inference-vote"), Name: name}
+	}
 	m := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist(*domain),
-		Cache:      autocert.DirCache(env("CERT_CACHE", "/tmp/certs")),
+		Cache:      cache,
 	}
 	if *staging {
 		m.Client = &acme.Client{DirectoryURL: "https://acme-staging-v02.api.letsencrypt.org/directory"}

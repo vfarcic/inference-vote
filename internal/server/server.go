@@ -306,10 +306,11 @@ func (s *Server) WatchPods(ctx context.Context) {
 	}
 }
 
-// StartLoadWhenReady runs the load test once, against both deployments at the
-// same time, as soon as the audience's deployment serves. Starting it from here
+// StartLoadWhenReady runs the load test against both deployments at the same
+// time, as soon as the audience's deployment serves. Starting it from here
 // rather than by hand means nobody has to remember it on stage, and both
-// deployments get exactly the same window.
+// deployments get exactly the same window. It runs once per session: a reset
+// after a rehearsal arms it again.
 func (s *Server) StartLoadWhenReady(ctx context.Context) {
 	if s.cfg.Load.Key == "" || s.cfg.Load.Agents == 0 {
 		log.Print("load test disabled: no load key or no agents")
@@ -330,7 +331,14 @@ func (s *Server) StartLoadWhenReady(ctx context.Context) {
 		for _, r := range load.Run(ctx, s.cfg.Load) {
 			log.Printf("load test: %s", r)
 		}
-		return
+		// Wait for this session to end before arming for the next one.
+		for s.poll.Snapshot().Phase == poll.Ready {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ch:
+			}
+		}
 	}
 }
 

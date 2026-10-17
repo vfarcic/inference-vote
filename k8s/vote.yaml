@@ -38,6 +38,36 @@ subjects:
   name: inference-vote
   namespace: inference-vote
 ---
+# Its Let's Encrypt certificates, kept in a Secret so a restart reuses them.
+# Create can't be limited to a name, so it is limited to this namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: inference-vote-certs
+  namespace: inference-vote
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["create"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["inference-vote-certs", "inference-vote-certs-staging"]
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: inference-vote-certs
+  namespace: inference-vote
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: inference-vote-certs
+subjects:
+- kind: ServiceAccount
+  name: inference-vote
+  namespace: inference-vote
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
