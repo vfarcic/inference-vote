@@ -91,12 +91,17 @@ func TestServingWhenPodsAre(t *testing.T) {
 	p := New(mustParse(t, "BBA"))
 	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
 	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "loading model"}})
-	if p.Snapshot().Serving {
-		t.Fatal("serving before every pod was")
+	p.MarkServing()
+	if s := p.Snapshot(); s.EnginesReady || s.Serving {
+		t.Fatal("ready or serving before every pod was")
 	}
 	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "ready"}})
+	if s := p.Snapshot(); !s.EnginesReady || s.Serving {
+		t.Fatal("ready engines should not count as serving before the gateway answers")
+	}
+	p.MarkServing()
 	if s := p.Snapshot(); !s.Serving || s.Phase != Deploying {
-		t.Fatal("not serving after every pod was, or the race started on its own")
+		t.Fatal("not serving after the gateway answered, or the race started on its own")
 	}
 }
 
@@ -110,6 +115,7 @@ func TestTheRaceStartsWithoutTheAudiencesDeployment(t *testing.T) {
 		t.Fatal("advanced past the race")
 	}
 	p.ReportPods([]PodState{{Name: "a", Step: "ready"}})
+	p.MarkServing()
 	if !p.Snapshot().Serving {
 		t.Fatal("a deployment that comes up during the race should still count as serving")
 	}

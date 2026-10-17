@@ -115,6 +115,7 @@ func serve(ctx context.Context, args []string) error {
 	s := server.New(cfg, poll.New(opt), k)
 	go s.WatchPods(ctx)
 	go s.RunRace(ctx)
+	go s.ProbeGateway(ctx)
 
 	handler := s.Handler()
 	if *domain == "" {

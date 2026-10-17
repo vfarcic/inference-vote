@@ -48,8 +48,15 @@
     }).join("")}</ul>`;
   }
 
+  // Ready engines still need Modelplane's gateway route before anyone can
+  // reach them, which can take minutes; say so, or it looks stuck.
+  function gatewayHTML(s) {
+    if (!s.enginesReady) return "";
+    return `<ul class="steps"><li class="${s.serving ? "done" : ""}">Gateway: ${s.serving ? "answering" : "waiting for the route"}</li></ul>`;
+  }
+
   function progressHTML(s) {
-    return `<p class="muted">${clock(since(s.started))} since the votes closed</p>${podsHTML(s.progress.pods, s.progress.applied)}`;
+    return `<p class="muted">${clock(since(s.started))} since the votes closed</p>${podsHTML(s.progress.pods, s.progress.applied)}${gatewayHTML(s)}`;
   }
 
   function summaryHTML(summary) {
@@ -195,7 +202,7 @@
       let body;
       if (!side.serving) {
         const crashed = (side.pods || []).some((p) => p.restarts);
-        body = `<p class="${crashed ? "crash" : "muted"}">${crashed ? "Not serving." : "Not serving yet."}</p>${podsHTML(side.pods, true)}`;
+        body = `<p class="${crashed ? "crash" : "muted"}">${crashed ? "Not serving." : "Not serving yet."}</p>${podsHTML(side.pods, true)}${gatewayHTML(s)}`;
       } else {
         const num = (v, digits) => (v === undefined || v === null ? "-" : v.toFixed(digits));
         body = `<table class="stats">
@@ -251,7 +258,7 @@
         html = `<h1>Deploying your pick</h1>${summaryHTML(s.summary)}${progressHTML(s)}`;
       } else if (s.phase === "race") {
         html = race
-          ? `<h1>The race <span class="muted">${clock(since(race.started))}</span></h1>
+          ? `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
             <div class="race">${sideHTML("Optimized", race.optimized, s, false)}${sideHTML("Your pick", race.audience, s, true)}</div>
             ${manifestsHTML(race.manifests)}`
           : `<h1>The race</h1><p class="muted">Starting...</p>`;

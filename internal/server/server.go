@@ -58,8 +58,16 @@ func New(cfg Config, p *poll.Poll, k *kube.Client) *Server {
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /", http.FileServerFS(web.Files))
+	// The pages are embedded, so they change only with a new image; no-cache
+	// makes browsers check, so a fix rolled out before the talk reaches every
+	// phone that already has the page open.
+	files := http.FileServerFS(web.Files)
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
+		files.ServeHTTP(w, r)
+	})
 	mux.HandleFunc("GET /presenter", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-cache")
 		http.ServeFileFS(w, r, web.Files, "presenter.html")
 	})
 	mux.HandleFunc("GET /api/state", s.state)
@@ -394,6 +402,49 @@ func (p pod) step() string {
 	default:
 		return "starting"
 	}
+}
+
+// ProbeGateway confirms the audience's deployment actually answers. Ready
+// engines are not enough: Modelplane routes the gateway to them some minutes
+// later, and until then every request is a 404. So once the engines are ready,
+// this asks the gateway for a single token every few seconds, and the first
+// answer marks the deployment as serving.
+func (s *Server) ProbeGateway(ctx context.Context) {
+	client := &http.Client{Timeout: 20 * time.Second}
+	t := time.NewTicker(3 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+		st := s.poll.Snapshot()
+		if !st.EnginesReady || st.Serving {
+			continue
+		}
+		if s.answers(ctx, client, "audience") {
+			log.Printf("gateway answers for %s/audience, %s after the votes", choice.Namespace, time.Since(st.Started).Round(time.Second))
+			s.poll.MarkServing()
+		}
+	}
+}
+
+func (s *Server) answers(ctx context.Context, client *http.Client, target string) bool {
+	body, _ := json.Marshal(map[string]any{
+		"model":      choice.Namespace + "/" + target,
+		"messages":   []map[string]string{{"role": "user", "content": "Hi"}},
+		"max_tokens": 1,
+	})
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(s.cfg.GatewayURL, "/")+"/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.cfg.Load.Key)
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
 // crashReason says why an engine pod last crashed, in words, from the end of

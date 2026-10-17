@@ -71,9 +71,11 @@ Setup takes 20 to 30 minutes, most of it Modelplane creating the cluster, and
 prints the voting app's address and the presenter token at the end. Accounts
 outside Datadog's US1 site also need `DD_SITE`, such as `datadoghq.eu`.
 
-- **GPUs run out one zone at a time.** If the GPU nodes stay provisioning, look
-  for `ZONE_RESOURCE_POOL_EXHAUSTED` and set up again with
-  `--zone us-central1-b` or `us-central1-c`.
+- **GPUs run out one zone at a time**, and an L4 zone that has none now may
+  have some a minute later. Setup tries every zone with L4s, US first, and
+  reserves the GPU nodes in the first one that grants them; GKE's nodes then
+  use that reservation, so they can't be left waiting. `--zone` picks the zone
+  instead, and the cluster's region follows it.
 - **If setup stops after the cluster is up**, `./dot.nu setup app` finishes it
   without creating another.
 - **If nip.io is down**, `--domain` uses your own name instead; setup then
@@ -85,8 +87,10 @@ outside Datadog's US1 site also need `DD_SITE`, such as `datadoghq.eu`.
 ./dot.nu measure
 ```
 
-`measure` deploys each of the eight configs in turn and writes how long each
-took to `timings.md`: the slowest is how long the audience may wait. Rehearsal
+`measure` deploys each of the eight configs in turn and writes two times for
+each to `timings.md`: when its engines were ready, and when the gateway first
+answered for it. The second is what the audience waits for, and the slowest of
+the eight is how long they may wait. Rehearsal
 is also where `--optimized` gets decided. The default, `BBA`, is a guess.
 
 ### Right before going on stage
@@ -104,7 +108,9 @@ QR code. **Next** (or the right arrow, or a clicker):
 
 1. opens question 1,
 2. closes each question and opens the next, with the bars live as votes come in,
-3. after the third, applies the result and shows it deploying,
+3. after the third, applies the result and shows it deploying: the engines
+   loading, then the gateway waiting for Modelplane's route, which takes a few
+   minutes more,
 4. starts the race, whether or not the audience's deployment serves yet. If it
    crashed, its column says why; the race goes on with the optimized one.
 
@@ -118,9 +124,19 @@ QR code. **Next** (or the right arrow, or a clicker):
 
 ## What a rehearsal on Google showed
 
-Verified on GKE with Modelplane v0.5.0: setup, nip.io with a real certificate,
-voting, the bridge applying the result two seconds after the vote, both FP8 and
-full precision serving through the gateway, and the load test.
+Verified on GKE with Modelplane v0.5.0: setup (about 33 minutes), reserving the
+GPU nodes, nip.io with a real certificate kept across restarts, voting, the
+bridge applying the result two seconds after the vote, FP8 and full precision,
+tensor parallelism (about 4.5 minutes from the vote to ready engines), the race
+screen, and the load test.
+
+- **Modelplane routes the gateway to ready engines about five minutes after
+  they are ready.** Until then every request is a 404. The app counts the
+  audience's deployment as serving only once the gateway answers, so the race
+  never starts a test against it early. The bridge nudges the ModelService the
+  moment its replica is ready, in case the wait is a periodic reconcile; whether
+  that shortens it is not verified yet. The whole wait, vote to answers, is
+  about ten minutes.
 
 - Full precision leaves room for 2.79 conversations of 8,192 tokens on an L4;
   FP8 weights and KV cache leave room for 17.03. Under the load test, FP8
@@ -132,9 +148,12 @@ Not verified yet:
 
 - **Tensor parallelism** (question 2, A), including without `/dev/shm`. If NCCL
   complains, `NCCL_SHM_DISABLE=1` is the fallback.
-- **N-gram speculation** on vLLM v0.27.1, and whether it pays off under load.
-- **The race screen, accuracy test and crash reasons** against real engines.
-  They are tested against a stand-in gateway.
+- **N-gram speculation** under load, and whether it pays off. It started, but
+  the race that measured it hit the routing gap above.
+- **The accuracy test and crash reasons** against real engines. They are
+  tested against a stand-in gateway.
+- **100 load-test agents**: whether full precision mostly slows down or mostly
+  times out.
 - **`--cache`**, and `runai_streamer` being in the `vllm/vllm-openai` image.
 - **The Datadog sink**: `type: datadog` with `api.key` and `api.site` in its
   config.

@@ -130,6 +130,7 @@ type raceSide struct {
 
 type raceView struct {
 	Started   time.Time  `json:"started"`
+	Ended     *time.Time `json:"ended,omitempty"` // when the last test finished, once all have
 	Optimized raceSide   `json:"optimized"`
 	Audience  raceSide   `json:"audience"`
 	Manifests []diff.Row `json:"manifests"` // optimized on the left, the audience's on the right
@@ -173,5 +174,28 @@ func (s *Server) raceState(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.raceMu.Unlock()
+	v.Ended = raceEnded(v, st.Serving)
 	writeJSON(w, http.StatusOK, v)
+}
+
+// raceEnded is when the last test finished, or nil while any still runs. A
+// serving audience deployment whose tests haven't started yet means the race
+// isn't over; one that never served doesn't hold it up.
+func raceEnded(v raceView, audienceServing bool) *time.Time {
+	if v.Optimized.Load == nil || (audienceServing && v.Audience.Load == nil) {
+		return nil
+	}
+	var last time.Time
+	for _, side := range []raceSide{v.Optimized, v.Audience} {
+		if side.Load == nil {
+			continue
+		}
+		if !side.Load.Done || (side.Accuracy != nil && !side.Accuracy.Done) {
+			return nil
+		}
+		if side.Load.Ended.After(last) {
+			last = side.Load.Ended
+		}
+	}
+	return &last
 }

@@ -61,10 +61,13 @@ type State struct {
 	Summary   []string          `json:"summary,omitempty"`
 	Progress  Progress          `json:"progress"`
 	Started   time.Time         `json:"started,omitempty"` // when the votes were applied
-	// Serving is whether the audience's deployment answers. It is not a phase:
-	// the presenter can start the race before it serves, or without it at all.
-	Serving     bool      `json:"serving"`
-	RaceStarted time.Time `json:"raceStarted,omitempty"`
+	// EnginesReady is every engine pod ready; Serving is the gateway answering
+	// for the deployment, which Modelplane's route makes possible some minutes
+	// later. Neither is a phase: the presenter can start the race before either,
+	// or without them at all.
+	EnginesReady bool      `json:"enginesReady"`
+	Serving      bool      `json:"serving"`
+	RaceStarted  time.Time `json:"raceStarted,omitempty"`
 	// Session changes on every reset, so whatever runs once per session (the
 	// race) knows a new one has begun.
 	Session int `json:"session"`
@@ -278,13 +281,12 @@ func (p *Poll) ReportPods(pods []PodState) {
 	p.changed()
 }
 
-// promote marks the audience's deployment as serving once every engine pod is
-// ready, or the control plane says the replica is. Either is enough: the pods
-// are the faster signal, the replica the authoritative one. Once serving, it
-// stays so for the session: a late crash shows in the pods, not by taking the
-// race away.
+// promote marks the audience's engines ready once every engine pod is, or the
+// control plane says the replica is. Either is enough: the pods are the faster
+// signal, the replica the authoritative one. Ready engines are not yet serving:
+// that takes the gateway's route, which MarkServing confirms.
 func (p *Poll) promote() {
-	if p.state.Serving || (p.state.Phase != Deploying && p.state.Phase != Race) {
+	if p.state.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
 		return
 	}
 	pr := p.state.Progress
@@ -295,6 +297,19 @@ func (p *Poll) promote() {
 		}
 	}
 	if podsReady || (pr.ReplicasTotal > 0 && pr.ReplicasReady == pr.ReplicasTotal) {
-		p.state.Serving = true
+		p.state.EnginesReady = true
 	}
+}
+
+// MarkServing records that the gateway answered for the audience's deployment.
+// Once serving, it stays so for the session: a late crash shows in the pods,
+// not by taking the race away.
+func (p *Poll) MarkServing() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.state.Serving || !p.state.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
+		return
+	}
+	p.state.Serving = true
+	p.changed()
 }

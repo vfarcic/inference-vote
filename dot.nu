@@ -445,9 +445,10 @@ def "main get vote-address" [] {
 
 # Measures how long each of the eight configs takes to serve
 #
-# Applies each one as the audience deployment in turn, waits until it is ready,
-# records the time, and removes it. Run it in rehearsal: the slowest of the
-# eight is how long the audience may wait on stage. Writes timings.md.
+# Applies each one as the audience deployment in turn, records when its engines
+# were ready and when the gateway first answered for it, and removes it. Run it
+# in rehearsal: the slowest of the eight is how long the audience may wait on
+# stage. Writes timings.md.
 #
 # Examples:
 # > ./dot.nu measure
@@ -457,6 +458,12 @@ def "main measure" [
     --cache                # Measure with the ModelCache
     --image = $IMAGE
 ] {
+    # Timed to the gateway answering, which is what the audience waits for:
+    # Modelplane routes it to ready engines some minutes after they are ready.
+    let gateway = (kubectl get inferencegateway public --output jsonpath="{.status.address}")
+    let key = (kubectl --namespace modelplane-system get secret inference-vote-keys --output json | from json | get data.loadtest | decode base64 | decode)
+    let elapsed = { |start| ((date now) - $start | into int) // 1_000_000_000 }
+    let clock = { |s| $"($s // 60)m ($s mod 60)s" }
     mut rows = []
     for config in $configs {
         print $"Measuring (ansi yellow_bold)($config)(ansi reset)..."
@@ -465,18 +472,40 @@ def "main measure" [
             | kubectl apply --filename -
         # A config that can't start, like one that runs out of GPU memory,
         # crash-loops rather than failing, so give up after a while.
-        mut ready = false
-        mut seconds = 0
-        while not $ready and $seconds < 1200 {
+        mut engines = null
+        mut answers = null
+        while $answers == null and (do $elapsed $start) < 1200 {
             sleep 5sec
-            let status = (kubectl --namespace ml-team get modeldeployment audience --output json | from json | get status? | default {})
-            let replicas = ($status.replicas? | default { total: 0, ready: 0 })
-            $ready = ($replicas.total? | default 0) > 0 and ($replicas.ready? | default 0) == ($replicas.total? | default 0)
-            $seconds = ((date now) - $start | into int) // 1_000_000_000
+            if $engines == null {
+                let status = (kubectl --namespace ml-team get modeldeployment audience --output json | from json | get status? | default {})
+                let replicas = ($status.replicas? | default { total: 0, ready: 0 })
+                if ($replicas.total? | default 0) > 0 and ($replicas.ready? | default 0) == ($replicas.total? | default 0) {
+                    $engines = (do $elapsed $start)
+                    print $"  engines ready after (do $clock $engines)"
+                }
+            } else {
+                let probe = try {
+                    (
+                        http post --full --allow-errors --max-time 20sec --content-type application/json
+                            --headers { Authorization: $"Bearer ($key)" }
+                            $"http://($gateway)/v1/chat/completions"
+                            { model: "ml-team/audience", messages: [{ role: user, content: Hi }], max_tokens: 1 }
+                    )
+                } catch { { status: 0 } }
+                if $probe.status == 200 {
+                    $answers = (do $elapsed $start)
+                }
+            }
         }
-        let result = if $ready { $"($seconds / 60 | math floor)m ($seconds mod 60)s" } else { "did not start within 20m" }
+        let result = if $answers != null {
+            $"(do $clock $answers), engines ready at (do $clock $engines)"
+        } else if $engines != null {
+            $"engines ready at (do $clock $engines), but the gateway did not answer within 20m"
+        } else {
+            "did not start within 20m"
+        }
         print $"  ($result)"
-        $rows = ($rows | append { config: $config, seconds: (if $ready { $seconds } else { null }), result: $result })
+        $rows = ($rows | append { config: $config, engines: $engines, answers: $answers, result: $result })
         kubectl --namespace ml-team delete modeldeployment audience --wait=true
     }
     $rows | to md | save --force timings.md
@@ -514,6 +543,13 @@ def --env "main destroy" [
     # the deployments, services (their routes), caches and gateway go first.
     kubectl --namespace ml-team delete modeldeployments --all --wait=true
     kubectl --namespace ml-team delete modelservices --all --wait=true
+    # A ModelService's deletion returns before Modelplane removes its routes,
+    # and the cluster can't be deleted while a route uses it.
+    mut attempts = 0
+    while (kubectl get modelroutes --all-namespaces --output name | complete | get stdout | str trim) != "" and $attempts < 60 {
+        sleep 5sec
+        $attempts += 1
+    }
     kubectl --namespace ml-team delete modelcaches --all --ignore-not-found --wait=true
     kubectl delete inferencegateway public --ignore-not-found --wait=true
     kubectl delete telemetrydestination datadog --ignore-not-found --wait=true

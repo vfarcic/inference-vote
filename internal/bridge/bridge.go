@@ -32,6 +32,7 @@ type Bridge struct {
 	Every    time.Duration
 
 	applied string // config last applied, so an unchanged one is not re-sent
+	poked   string // config whose ModelService was nudged once its replica was ready
 	http    *http.Client
 }
 
@@ -119,6 +120,9 @@ func (b *Bridge) report(ctx context.Context) error {
 	if err := b.Kube.Get(ctx, b.path(), &d); err != nil {
 		return err
 	}
+	if d.Status.Replicas.Total > 0 && d.Status.Replicas.Ready == d.Status.Replicas.Total && b.poked != b.applied {
+		b.poke(ctx)
+	}
 	conditions := make([]string, 0, len(d.Status.Conditions))
 	for _, c := range d.Status.Conditions {
 		conditions = append(conditions, fmt.Sprintf("%s=%s %s", c.Type, c.Status, c.Reason))
@@ -138,4 +142,29 @@ func (b *Bridge) report(ctx context.Context) error {
 	}
 	resp.Body.Close()
 	return nil
+}
+
+// poke touches the audience's ModelService once its replica is ready. In the
+// first rehearsals Modelplane routed the gateway to ready engines only about
+// five minutes later, which looks like waiting for a periodic reconcile; a
+// change to the ModelService makes it reconcile now. An annotation is the
+// smallest change that does it, and it is ours alone, so it never fights
+// Modelplane over a field.
+func (b *Bridge) poke(ctx context.Context) {
+	path := fmt.Sprintf("/apis/modelplane.ai/v1alpha1/namespaces/%s/modelservices/%s", choice.Namespace, b.Name)
+	obj := map[string]any{
+		"apiVersion": "modelplane.ai/v1alpha1",
+		"kind":       "ModelService",
+		"metadata": map[string]any{
+			"name":        b.Name,
+			"namespace":   choice.Namespace,
+			"annotations": map[string]string{"inference-vote/replica-ready": time.Now().UTC().Format(time.RFC3339)},
+		},
+	}
+	if err := b.Kube.Apply(ctx, path, obj); err != nil {
+		log.Printf("bridge: nudging ModelService %s: %v", b.Name, err)
+		return
+	}
+	log.Printf("bridge: replica ready, nudged ModelService %s/%s to route it", choice.Namespace, b.Name)
+	b.poked = b.applied
 }

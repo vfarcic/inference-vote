@@ -66,15 +66,16 @@ func (s *Stats) record(d time.Duration, tokens int, err error) {
 
 // View is a snapshot of Stats, ready to serialize.
 type View struct {
-	Target       string   `json:"target"`
-	Seconds      float64  `json:"seconds"` // how long it has run
-	Done         bool     `json:"done"`
-	Requests     int      `json:"requests"`
-	Failures     int      `json:"failures"`
-	TokensPerSec float64  `json:"tokensPerSec"`
-	P50          float64  `json:"p50"` // seconds per answer
-	P95          float64  `json:"p95"`
-	Reasons      []string `json:"reasons,omitempty"` // the most common failures, counted
+	Target       string    `json:"target"`
+	Seconds      float64   `json:"seconds"` // how long it has run
+	Done         bool      `json:"done"`
+	Ended        time.Time `json:"ended,omitempty"`
+	Requests     int       `json:"requests"`
+	Failures     int       `json:"failures"`
+	TokensPerSec float64   `json:"tokensPerSec"`
+	P50          float64   `json:"p50"` // seconds per answer
+	P95          float64   `json:"p95"`
+	Reasons      []string  `json:"reasons,omitempty"` // the most common failures, counted
 }
 
 func (s *Stats) View() View {
@@ -84,7 +85,7 @@ func (s *Stats) View() View {
 	if end.IsZero() {
 		end = time.Now()
 	}
-	v := View{Target: s.target, Seconds: end.Sub(s.started).Seconds(), Done: !s.finished.IsZero(), Requests: s.requests, Failures: s.failures}
+	v := View{Target: s.target, Seconds: end.Sub(s.started).Seconds(), Done: !s.finished.IsZero(), Ended: s.finished, Requests: s.requests, Failures: s.failures}
 	if v.Seconds > 0 {
 		v.TokensPerSec = float64(s.tokens) / v.Seconds
 	}
