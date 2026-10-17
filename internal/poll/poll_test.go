@@ -26,8 +26,7 @@ func run(t *testing.T, p *Poll, answers [3][]choice.Option) State {
 				t.Fatalf("vote %d on question %d was refused", i, q)
 			}
 		}
-		p.Next() // close
-		p.Next() // open the next, or apply after the last
+		p.Next() // close it and open the next, or apply after the last
 	}
 	return p.Snapshot()
 }
@@ -88,15 +87,39 @@ func TestVotesOutsideTheOpenQuestionAreIgnored(t *testing.T) {
 	}
 }
 
-func TestReadyWhenPodsAre(t *testing.T) {
+func TestServingWhenPodsAre(t *testing.T) {
 	p := New(mustParse(t, "BBA"))
 	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
 	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "loading model"}})
-	if p.Snapshot().Phase != Deploying {
-		t.Fatal("ready before every pod was")
+	if p.Snapshot().Serving {
+		t.Fatal("serving before every pod was")
 	}
 	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "ready"}})
-	if p.Snapshot().Phase != Ready {
-		t.Fatal("not ready after every pod was")
+	if s := p.Snapshot(); !s.Serving || s.Phase != Deploying {
+		t.Fatal("not serving after every pod was, or the race started on its own")
+	}
+}
+
+func TestTheRaceStartsWithoutTheAudiencesDeployment(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
+	if !p.Next() || p.Snapshot().Phase != Race {
+		t.Fatal("Next during deploying did not start the race")
+	}
+	if p.Next() {
+		t.Fatal("advanced past the race")
+	}
+	p.ReportPods([]PodState{{Name: "a", Step: "ready"}})
+	if !p.Snapshot().Serving {
+		t.Fatal("a deployment that comes up during the race should still count as serving")
+	}
+}
+
+func TestResetStartsANewSession(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	first := p.Snapshot().Session
+	p.Reset()
+	if p.Snapshot().Session == first {
+		t.Fatal("session did not change on reset")
 	}
 }

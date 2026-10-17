@@ -1,7 +1,7 @@
 // Package load generates the traffic the verdict is based on. The audience's
 // chat is too small and too uneven a sample, so this runs the same agent
-// workload against both deployments at the same time, as its own gateway
-// caller, and Datadog compares what the engines report.
+// workload against both deployments, as its own gateway caller, and the race
+// screen and Datadog compare what comes back.
 //
 // The workload is shaped like a coding agent, because that is what decides
 // question 2: every request resends one long, identical opening (system prompt
@@ -34,85 +34,129 @@ type Config struct {
 	Seed       int64
 }
 
-type Result struct {
-	Target    string
-	Requests  int
-	Failures  int
-	Reasons   map[string]int // why requests failed, so a failure count can be explained
-	Tokens    int
-	Latencies []time.Duration
-	Elapsed   time.Duration
+// Stats is one target's running totals, safe for concurrent use: agents add to
+// it while the race screen reads it.
+type Stats struct {
+	mu        sync.Mutex
+	target    string
+	started   time.Time
+	finished  time.Time
+	requests  int
+	failures  int
+	reasons   map[string]int // why requests failed, so a failure count can be explained
+	tokens    int
+	latencies []time.Duration
 }
 
-func (r Result) String() string {
-	if len(r.Latencies) == 0 {
-		return fmt.Sprintf("%-10s no successful requests (%d failures)", r.Target, r.Failures) + r.reasons()
+func (s *Stats) record(d time.Duration, tokens int, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.requests++
+	if err != nil {
+		s.failures++
+		if s.reasons == nil {
+			s.reasons = map[string]int{}
+		}
+		s.reasons[err.Error()]++
+		return
 	}
-	slices.Sort(r.Latencies)
-	p := func(q float64) time.Duration { return r.Latencies[int(q*float64(len(r.Latencies)-1))] }
-	return fmt.Sprintf("%-10s %5d requests %4d failures %7.1f tokens/s  p50 %5.1fs  p95 %5.1fs",
-		r.Target, r.Requests, r.Failures, float64(r.Tokens)/r.Elapsed.Seconds(),
-		p(0.50).Seconds(), p(0.95).Seconds()) + r.reasons()
+	s.tokens += tokens
+	s.latencies = append(s.latencies, d)
 }
 
-func (r Result) reasons() string {
-	if len(r.Reasons) == 0 {
-		return ""
+// View is a snapshot of Stats, ready to serialize.
+type View struct {
+	Target       string   `json:"target"`
+	Seconds      float64  `json:"seconds"` // how long it has run
+	Done         bool     `json:"done"`
+	Requests     int      `json:"requests"`
+	Failures     int      `json:"failures"`
+	TokensPerSec float64  `json:"tokensPerSec"`
+	P50          float64  `json:"p50"` // seconds per answer
+	P95          float64  `json:"p95"`
+	Reasons      []string `json:"reasons,omitempty"` // the most common failures, counted
+}
+
+func (s *Stats) View() View {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	end := s.finished
+	if end.IsZero() {
+		end = time.Now()
 	}
-	keys := make([]string, 0, len(r.Reasons))
-	for k := range r.Reasons {
+	v := View{Target: s.target, Seconds: end.Sub(s.started).Seconds(), Done: !s.finished.IsZero(), Requests: s.requests, Failures: s.failures}
+	if v.Seconds > 0 {
+		v.TokensPerSec = float64(s.tokens) / v.Seconds
+	}
+	if n := len(s.latencies); n > 0 {
+		sorted := slices.Clone(s.latencies)
+		slices.Sort(sorted)
+		v.P50 = sorted[int(0.50*float64(n-1))].Seconds()
+		v.P95 = sorted[int(0.95*float64(n-1))].Seconds()
+	}
+	keys := make([]string, 0, len(s.reasons))
+	for k := range s.reasons {
 		keys = append(keys, k)
 	}
-	slices.SortFunc(keys, func(a, b string) int { return r.Reasons[b] - r.Reasons[a] })
-	var b strings.Builder
+	slices.SortFunc(keys, func(a, b string) int { return s.reasons[b] - s.reasons[a] })
 	for i, k := range keys {
 		if i == 3 {
 			break
 		}
-		fmt.Fprintf(&b, "\n    %4dx %s", r.Reasons[k], k)
+		v.Reasons = append(v.Reasons, fmt.Sprintf("%dx %s", s.reasons[k], k))
 	}
-	return b.String()
+	return v
 }
 
-// Run loads every target in parallel and returns one result per target. Each
-// agent's sequence of requests is seeded by its index, so agent n sends the
-// same conversation to every target.
-func Run(ctx context.Context, cfg Config) []Result {
+func (v View) String() string {
+	line := fmt.Sprintf("%-10s %5d requests %4d failures %7.1f tokens/s  p50 %5.1fs  p95 %5.1fs",
+		v.Target, v.Requests, v.Failures, v.TokensPerSec, v.P50, v.P95)
+	for _, r := range v.Reasons {
+		line += "\n    " + r
+	}
+	return line
+}
+
+// Start runs the workload against one target in the background, for
+// cfg.Duration, and returns its live totals. Each agent's sequence of requests
+// is seeded by its index, so agent n sends the same conversation to every
+// target, whenever each target starts.
+func Start(ctx context.Context, cfg Config, target string) *Stats {
+	s := &Stats{target: target, started: time.Now()}
 	ctx, cancel := context.WithTimeout(ctx, cfg.Duration)
-	defer cancel()
-	results := make([]Result, len(cfg.Targets))
 	var wg sync.WaitGroup
+	for a := 0; a < cfg.Agents; a++ {
+		wg.Add(1)
+		go func(a int) {
+			defer wg.Done()
+			agent(ctx, cfg, target, cfg.Seed+int64(a), s.record)
+		}(a)
+	}
+	go func() {
+		wg.Wait()
+		cancel()
+		s.mu.Lock()
+		s.finished = time.Now()
+		s.mu.Unlock()
+	}()
+	return s
+}
+
+// Run loads every target at once and waits for the end: the command-line load
+// test, outside a talk.
+func Run(ctx context.Context, cfg Config) []View {
+	stats := make([]*Stats, len(cfg.Targets))
 	for i, target := range cfg.Targets {
-		results[i].Target = target
-		var mu sync.Mutex
-		for a := 0; a < cfg.Agents; a++ {
-			wg.Add(1)
-			go func(res *Result, a int) {
-				defer wg.Done()
-				agent(ctx, cfg, target, cfg.Seed+int64(a), func(d time.Duration, tokens int, err error) {
-					mu.Lock()
-					defer mu.Unlock()
-					res.Requests++
-					if err != nil {
-						res.Failures++
-						if res.Reasons == nil {
-							res.Reasons = map[string]int{}
-						}
-						res.Reasons[err.Error()]++
-						return
-					}
-					res.Tokens += tokens
-					res.Latencies = append(res.Latencies, d)
-				})
-			}(&results[i], a)
+		stats[i] = Start(ctx, cfg, target)
+	}
+	views := make([]View, len(stats))
+	for i, s := range stats {
+		for !s.View().Done {
+			time.Sleep(time.Second)
 		}
+		views[i] = s.View()
 	}
-	start := time.Now()
-	wg.Wait()
-	for i := range results {
-		results[i].Elapsed = time.Since(start)
-	}
-	return results
+	return views
 }
 
 type message struct {

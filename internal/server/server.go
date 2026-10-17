@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/vfarcic/inference-vote/internal/choice"
+	"github.com/vfarcic/inference-vote/internal/eval"
 	"github.com/vfarcic/inference-vote/internal/kube"
 	"github.com/vfarcic/inference-vote/internal/load"
 	"github.com/vfarcic/inference-vote/internal/poll"
@@ -34,6 +35,8 @@ type Config struct {
 	GatewayKey     string // the audience caller's API key on that gateway
 	PodSelector    string // label selector for the audience's engine pods
 	Load           load.Config
+	Eval           eval.Config
+	Options        choice.Options // how both deployments are deployed, for the manifests on screen
 }
 
 type Server struct {
@@ -41,10 +44,16 @@ type Server struct {
 	poll *poll.Poll
 	chat *limiter
 	kube *kube.Client // nil outside a cluster; pod progress is then skipped
+
+	raceMu sync.Mutex
+	race   *race // nil until the presenter starts it
+
+	reasonsMu sync.Mutex
+	reasons   map[string]string // crash reasons read from logs, by pod and restart count
 }
 
 func New(cfg Config, p *poll.Poll, k *kube.Client) *Server {
-	return &Server{cfg: cfg, poll: p, chat: newLimiter(6, time.Minute), kube: k}
+	return &Server{cfg: cfg, poll: p, chat: newLimiter(6, time.Minute), kube: k, reasons: map[string]string{}}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -55,6 +64,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("GET /api/state", s.state)
 	mux.HandleFunc("GET /api/events", s.events)
+	mux.HandleFunc("GET /api/race", s.raceState)
 	mux.HandleFunc("POST /api/vote", s.vote)
 	mux.HandleFunc("POST /api/chat", s.chatProxy)
 	mux.HandleFunc("POST /api/presenter/next", s.presenter(func() { s.poll.Next() }))
@@ -86,6 +96,11 @@ type view struct {
 
 func (s *Server) viewFor(id string) view {
 	v := view{State: s.poll.Snapshot()}
+	// The optimized config is revealed on the race screen, not before: the
+	// room should vote on the questions, not against an answer key.
+	if v.Phase != poll.Race {
+		v.Optimized, v.Swapped = "", false
+	}
 	for q := range v.Mine {
 		v.Mine[q] = s.poll.VoteOf(id, q)
 	}
@@ -217,8 +232,9 @@ func (s *Server) bridgeReport(w http.ResponseWriter, r *http.Request) {
 // browser names which deployment it wants; the key stays on the server.
 func (s *Server) chatProxy(w http.ResponseWriter, r *http.Request) {
 	id := voter(w, r)
-	if s.poll.Snapshot().Phase != poll.Ready {
-		http.Error(w, "chat opens once both deployments serve", http.StatusConflict)
+	st := s.poll.Snapshot()
+	if st.Phase != poll.Race {
+		http.Error(w, "chat opens when the race starts", http.StatusConflict)
 		return
 	}
 	if !s.chat.allow(id) {
@@ -237,6 +253,11 @@ func (s *Server) chatProxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "target must be audience or optimized", http.StatusBadRequest)
 		return
 	}
+	if body.Target == "audience" && !st.Serving {
+		http.Error(w, "your pick is not serving", http.StatusConflict)
+		return
+	}
+	s.countChat(body.Target)
 	req, _ := json.Marshal(map[string]any{
 		"model":      choice.Namespace + "/" + body.Target,
 		"messages":   body.Messages,
@@ -290,7 +311,8 @@ func (s *Server) WatchPods(ctx context.Context) {
 			return
 		case <-t.C:
 		}
-		if s.poll.Snapshot().Phase != poll.Deploying {
+		// During the race too: a deployment can still come up, or crash.
+		if ph := s.poll.Snapshot().Phase; ph != poll.Deploying && ph != poll.Race {
 			continue
 		}
 		var list podList
@@ -300,45 +322,16 @@ func (s *Server) WatchPods(ctx context.Context) {
 		}
 		pods := make([]poll.PodState, 0, len(list.Items))
 		for _, p := range list.Items {
-			pods = append(pods, poll.PodState{Name: p.Metadata.Name, Step: p.step()})
+			state := poll.PodState{Name: p.Metadata.Name, Step: p.step()}
+			if len(p.Status.ContainerStatuses) > 0 {
+				state.Restarts = p.Status.ContainerStatuses[0].RestartCount
+			}
+			if state.Restarts > 0 {
+				state.Reason = s.crashReason(ctx, p, state.Restarts)
+			}
+			pods = append(pods, state)
 		}
 		s.poll.ReportPods(pods)
-	}
-}
-
-// StartLoadWhenReady runs the load test against both deployments at the same
-// time, as soon as the audience's deployment serves. Starting it from here
-// rather than by hand means nobody has to remember it on stage, and both
-// deployments get exactly the same window. It runs once per session: a reset
-// after a rehearsal arms it again.
-func (s *Server) StartLoadWhenReady(ctx context.Context) {
-	if s.cfg.Load.Key == "" || s.cfg.Load.Agents == 0 {
-		log.Print("load test disabled: no load key or no agents")
-		return
-	}
-	ch, stop := s.poll.Subscribe()
-	defer stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ch:
-		}
-		if s.poll.Snapshot().Phase != poll.Ready {
-			continue
-		}
-		log.Printf("load test: %d agents on each of %v for %s", s.cfg.Load.Agents, s.cfg.Load.Targets, s.cfg.Load.Duration)
-		for _, r := range load.Run(ctx, s.cfg.Load) {
-			log.Printf("load test: %s", r)
-		}
-		// Wait for this session to end before arming for the next one.
-		for s.poll.Snapshot().Phase == poll.Ready {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ch:
-			}
-		}
 	}
 }
 
@@ -348,14 +341,22 @@ type podList struct {
 
 type pod struct {
 	Metadata struct {
-		Name string `json:"name"`
+		Name      string `json:"name"`
+		Namespace string `json:"namespace"`
 	} `json:"metadata"`
 	Spec struct {
 		NodeName string `json:"nodeName"`
 	} `json:"spec"`
 	Status struct {
 		ContainerStatuses []struct {
-			Ready bool `json:"ready"`
+			Ready        bool `json:"ready"`
+			RestartCount int  `json:"restartCount"`
+			LastState    struct {
+				Terminated *struct {
+					Reason   string `json:"reason"`
+					ExitCode int    `json:"exitCode"`
+				} `json:"terminated"`
+			} `json:"lastState"`
 			State struct {
 				Waiting *struct {
 					Reason string `json:"reason"`
@@ -380,8 +381,12 @@ func (p pod) step() string {
 	switch {
 	case c.Ready:
 		return "ready"
+	case c.State.Running != nil && c.RestartCount > 0:
+		return "loading model again"
 	case c.State.Running != nil:
 		return "loading model"
+	case c.State.Waiting != nil && c.State.Waiting.Reason == "CrashLoopBackOff":
+		return "crashed, waiting to retry"
 	case c.State.Waiting != nil && (c.State.Waiting.Reason == "ContainerCreating" || c.State.Waiting.Reason == "PodInitializing"):
 		return "pulling image"
 	case c.State.Waiting != nil:
@@ -389,6 +394,60 @@ func (p pod) step() string {
 	default:
 		return "starting"
 	}
+}
+
+// crashReason says why an engine pod last crashed, in words, from the end of
+// its previous container's log. It is read once per crash.
+func (s *Server) crashReason(ctx context.Context, p pod, restarts int) string {
+	key := fmt.Sprintf("%s/%d", p.Metadata.Name, restarts)
+	s.reasonsMu.Lock()
+	reason, ok := s.reasons[key]
+	s.reasonsMu.Unlock()
+	if ok {
+		return reason
+	}
+	if t := p.Status.ContainerStatuses[0].LastState.Terminated; t != nil && t.Reason == "OOMKilled" {
+		reason = "ran out of memory (the container's, not the GPU's)"
+	} else {
+		path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log?previous=true&tailLines=400", p.Metadata.Namespace, p.Metadata.Name)
+		logs, err := s.kube.Raw(ctx, path)
+		if err != nil {
+			log.Printf("reading %s's crash log: %v", p.Metadata.Name, err)
+			return ""
+		}
+		reason = ReasonFromLog(string(logs))
+	}
+	s.reasonsMu.Lock()
+	s.reasons[key] = reason
+	s.reasonsMu.Unlock()
+	return reason
+}
+
+// ReasonFromLog turns a crashed vLLM's log into one short sentence for the
+// screen, recognizing the failures this setup can actually hit.
+func ReasonFromLog(logs string) string {
+	switch {
+	case strings.Contains(logs, "No available memory for the cache blocks"),
+		strings.Contains(logs, "larger than the available KV cache memory"),
+		strings.Contains(logs, "Available KV cache memory") && strings.Contains(logs, "EngineCore failed to start"):
+		return "not enough GPU memory left for the KV cache"
+	case strings.Contains(logs, "CUDA out of memory"), strings.Contains(logs, "OutOfMemoryError"):
+		return "ran out of GPU memory"
+	case strings.Contains(logs, "NCCL"):
+		return "the GPUs could not connect to each other (NCCL)"
+	case strings.Contains(logs, "huggingface") && (strings.Contains(logs, "429") || strings.Contains(logs, "Timeout") || strings.Contains(logs, "ConnectionError")):
+		return "could not download the model"
+	}
+	lines := strings.Split(strings.TrimSpace(logs), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if l := strings.TrimSpace(lines[i]); strings.Contains(l, "Error") {
+			if len(l) > 160 {
+				l = l[:160] + "..."
+			}
+			return l
+		}
+	}
+	return "crashed"
 }
 
 // limiter allows n events per window per key.

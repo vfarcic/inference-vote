@@ -15,21 +15,21 @@ def main [] {}
 # Sets up everything the talk needs
 #
 # A kind cluster on this machine becomes the Modelplane control plane. Modelplane
-# then creates the inference cluster in the chosen cloud, with four L4 GPUs: two
-# for the optimized deployment, which is deployed here, and two left free for
-# whatever the audience picks. The voting app runs on that cluster too.
+# then creates the inference cluster in the chosen cloud, with nodes of two L4
+# GPUs each: enough for the optimized deployment, which is deployed here, and
+# for whatever the audience picks. The voting app runs on that cluster too.
 #
 # Examples:
-# > ./dot.nu setup google --domain vote.devopstoolkit.ai
-# > ./dot.nu setup aws --domain vote.devopstoolkit.ai --acme-staging
-# > ./dot.nu setup google --domain vote.devopstoolkit.ai --no-datadog
-# > ./dot.nu setup google    # testing: <load balancer IP>.nip.io, no DNS to set
+# > ./dot.nu setup google                  # https://<load balancer IP>.nip.io, no DNS to set
+# > ./dot.nu setup google --no-datadog
+# > ./dot.nu setup google --zone us-central1-b
+# > ./dot.nu setup aws --domain vote.devopstoolkit.ai
 def --env "main setup" [
     provider: string             # Cloud provider. `google` or `aws`
-    --domain = ""                # Public name for the voting app, such as vote.devopstoolkit.ai. Empty uses <IP>.nip.io (Google only)
+    --domain = ""                # Public name for the voting app. Empty, the default, uses <IP>.nip.io (Google only). Set it only if nip.io is down
     --optimized = "BBA"          # The config the audience is compared against, one letter per question
     --cache                      # Serve weights from a ModelCache instead of downloading them on every start
-    --acme-staging               # Use Let's Encrypt staging. For rehearsals: real certificates are 5 per name per week
+    --acme-staging               # Use Let's Encrypt staging. Only needed with --domain, which has a limit of 5 certificates a week; every nip.io name is new
     --billing-account = ""       # Google billing account to link. Auto-detected when empty
     --image = $IMAGE             # The inference-vote image
     --no-datadog                 # Do not send metrics to Datadog, so no API key is needed
@@ -181,6 +181,7 @@ def --env "main setup app" [
             --from-literal $"DOMAIN=($domain)"
             --from-literal $"ACME_STAGING=($acme_staging)"
             --from-literal $"OPTIMIZED=($optimized)"
+            --from-literal $"MODEL_CACHE=($cache)"
             --dry-run=client --output yaml
     ) | kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename -
 
@@ -203,7 +204,7 @@ def --env "main setup app" [
 
     if not $nip {
         print $"
-In GoDaddy, set ($record), with a low TTL such as 600 seconds.
+In your DNS, set ($record), with a low TTL such as 600 seconds.
 The voting app requests its certificate on its own once the name resolves."
     }
 
@@ -414,16 +415,20 @@ def "main measure" [
         let start = (date now)
         docker run --rm $image render --name audience --config $config $"--cache=($cache)"
             | kubectl apply --filename -
+        # A config that can't start, like one that runs out of GPU memory,
+        # crash-loops rather than failing, so give up after a while.
         mut ready = false
-        while not $ready {
+        mut seconds = 0
+        while not $ready and $seconds < 1200 {
             sleep 5sec
             let status = (kubectl --namespace ml-team get modeldeployment audience --output json | from json | get status? | default {})
             let replicas = ($status.replicas? | default { total: 0, ready: 0 })
             $ready = ($replicas.total? | default 0) > 0 and ($replicas.ready? | default 0) == ($replicas.total? | default 0)
+            $seconds = ((date now) - $start | into int) // 1_000_000_000
         }
-        let seconds = ((date now) - $start | into int) / 1_000_000_000
-        print $"  ready in ($seconds)s"
-        $rows = ($rows | append { config: $config, seconds: $seconds })
+        let result = if $ready { $"($seconds / 60 | math floor)m ($seconds mod 60)s" } else { "did not start within 20m" }
+        print $"  ($result)"
+        $rows = ($rows | append { config: $config, seconds: (if $ready { $seconds } else { null }), result: $result })
         kubectl --namespace ml-team delete modeldeployment audience --wait=true
     }
     $rows | to md | save --force timings.md
@@ -458,10 +463,12 @@ def --env "main destroy" [
 ] {
 
     # An InferenceCluster cannot be deleted while anything composes onto it, so
-    # the deployments, caches and gateway go first.
+    # the deployments, services (their routes), caches and gateway go first.
     kubectl --namespace ml-team delete modeldeployments --all --wait=true
+    kubectl --namespace ml-team delete modelservices --all --wait=true
     kubectl --namespace ml-team delete modelcaches --all --ignore-not-found --wait=true
     kubectl delete inferencegateway public --ignore-not-found --wait=true
+    kubectl delete telemetrydestination datadog --ignore-not-found --wait=true
     kubectl delete inferencecluster vote --ignore-not-found --timeout=60m
 
     if $provider == "google" and ("PROJECT_ID" in $env) {

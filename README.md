@@ -1,7 +1,7 @@
 # inference-vote
 
 The audience votes on how to serve a model, Modelplane deploys what they picked,
-and it goes head to head with an optimized deployment on the same hardware.
+and it races an optimized deployment on the same hardware.
 
 Three questions, each one an inference concept:
 
@@ -9,7 +9,7 @@ Three questions, each one an inference concept:
 |---|---|---|---|
 | 1 | What do you care about more? | Keep the model as precise as it was trained (16-bit) | Make room for more conversations (FP8 weights and KV cache) |
 | 2 | You have two GPUs. How do you use them? | One engine split across both (tensor parallelism) | Two copies, one per GPU, routed by the endpoint picker |
-| 3 | How should the model write its answers? | One token at a time | A small draft model guesses ahead, the big one checks (speculative decoding) |
+| 3 | How should the model write its answers? | One token at a time | Guess ahead from what's already in the conversation, the model checks (n-gram speculative decoding) |
 
 Every one of the eight answer sets is two NVIDIA L4s serving Qwen3-8B with
 vLLM. `inference-vote render --config BBA` prints any of them.
@@ -19,7 +19,7 @@ vLLM. `inference-vote render --config BBA` prints any of them.
 ```
  laptop (kind)                         cloud (GKE or EKS, created by Modelplane)
  +----------------------+              +------------------------------------------+
- | Crossplane           |   creates    | 4x L4                                    |
+ | Crossplane           |   creates    | nodes of 2x L4                           |
  | Modelplane           | -----------> |   optimized ModelDeployment  (2 GPUs)    |
  | bridge  ------------------ polls ---->  voting app  <---- phones (QR code)     |
  |   applies the        |  (outbound   |   audience ModelDeployment   (2 GPUs)    |
@@ -32,59 +32,62 @@ vLLM. `inference-vote render --config BBA` prints any of them.
   internet can reach it, so the bridge reaches out: it polls the voting app for
   the winning config, applies the `ModelDeployment`, and reports its status
   back. Only outbound HTTPS, so a phone's hotspot is a working fallback.
-- **The voting app** runs on the inference cluster. Phones never navigate: the
-  page follows whatever the presenter advances to. It terminates TLS itself with
-  a Let's Encrypt certificate, so there is no ingress controller to install.
+- **The voting app** runs on the inference cluster, at
+  `https://<load balancer IP>.nip.io`. It gets its own Let's Encrypt
+  certificate and keeps it in a Secret, so a restart reuses it. Phones never
+  navigate: the page follows whatever the presenter advances to.
+- **The optimized config stays hidden until the race**, so the room votes on
+  the questions rather than against an answer key.
 - **If the audience picks exactly the optimized config**, the opposite is
   deployed instead, so there is still something to compare. Ties go against the
   optimized answer for the same reason.
-- **The load test** starts on its own the moment the audience's deployment
-  serves, against both deployments at once, as its own gateway caller. The
-  verdict is based on it, not on the audience's chat, which is too small and too
-  uneven a sample.
+- **The race** is the last screen. When the presenter starts it, a load test
+  (16 coding agents for 12 minutes) and an accuracy test (200 GSM8K math
+  problems) start against every deployment that serves; the audience's joins
+  whenever it comes up. The screen shows live numbers for each, audience chat
+  and load test counted apart, and the two manifests side by side, line by line.
+- **Modelplane counts capacity in whole nodes, not GPUs**
+  ([modelplane#172](https://github.com/modelplaneai/modelplane/issues/172)):
+  each engine pod takes a node to itself. Setup sizes the GPU pool for it: 3
+  nodes when the optimized config is one engine across both GPUs, 4 when it is
+  two copies.
 
 ## Before the talk
 
 You need Docker (give it 8 GB of memory), Devbox, a Datadog API key (unless
-you pass `--no-datadog`), and an account on the cloud you set up on. On AWS, request a G-instance vCPU quota of
-at least 48 for `g6.12xlarge`.
+you pass `--no-datadog`), and a Google Cloud login.
 
 ```sh
 devbox shell
 
 export DD_API_KEY=...
 
-./dot.nu setup google --domain vote.devopstoolkit.ai
+./dot.nu setup google
+
+source .env
 ```
 
-Setup asks for the key if `DD_API_KEY` is not set. Accounts outside Datadog's
-US1 site also need `DD_SITE`, such as `datadoghq.eu`. `--no-datadog` skips
-Datadog altogether: the vote, the deployments, chat, and `measure` do not depend
-on it.
+Setup takes 20 to 30 minutes, most of it Modelplane creating the cluster, and
+prints the voting app's address and the presenter token at the end. Accounts
+outside Datadog's US1 site also need `DD_SITE`, such as `datadoghq.eu`.
 
-`aws` instead of `google` is the fallback when one cloud has no GPUs. Setup
-takes 20 to 30 minutes, most of it Modelplane creating the cluster. At the end
-it prints the record to set in GoDaddy (an `A` record on Google, a `CNAME` on
-AWS, since that load balancer has a name rather than an IP) and the presenter
-token.
+- **GPUs run out one zone at a time.** If the GPU nodes stay provisioning, look
+  for `ZONE_RESOURCE_POOL_EXHAUSTED` and set up again with
+  `--zone us-central1-b` or `us-central1-c`.
+- **If setup stops after the cluster is up**, `./dot.nu setup app` finishes it
+  without creating another.
+- **If nip.io is down**, `--domain` uses your own name instead; setup then
+  prints the DNS record to create.
 
 ### Rehearsing
 
 ```sh
-./dot.nu setup google --domain vote-rehearsal.devopstoolkit.ai --acme-staging
-
 ./dot.nu measure
-
-./dot.nu measure --cache    # after a setup with --cache
 ```
 
-`--acme-staging` keeps rehearsals from using up Let's Encrypt's five
-certificates per name per week; phones will warn about the certificate, which
-is expected. `measure` deploys each of the eight configs in turn and writes how
-long each took to `timings.md`: the slowest is how long the audience may wait.
-
-Rehearsal is also where `--optimized` gets decided. The default, `BBA`, is a
-guess, and under heavy load speculative decoding in particular may lose.
+`measure` deploys each of the eight configs in turn and writes how long each
+took to `timings.md`: the slowest is how long the audience may wait. Rehearsal
+is also where `--optimized` gets decided. The default, `BBA`, is a guess.
 
 ### Right before going on stage
 
@@ -92,15 +95,20 @@ guess, and under heavy load speculative decoding in particular may lose.
 ./dot.nu reset
 ```
 
-It removes the audience's deployment and restarts the voting app and the
-bridge, which clears every vote.
+It removes the audience's deployment and clears every vote.
 
 ## On stage
 
-Open `https://<domain>/presenter`, paste the token, and put the QR code for
-`https://<domain>` on screen. **Next** (or the right arrow, or a clicker) opens a
-question, closes it, moves on, and after the third applies the result. **Reset**
-needs two clicks.
+Open `https://<IP>.nip.io/presenter` and paste the token; the lobby shows the
+QR code. **Next** (or the right arrow, or a clicker):
+
+1. opens question 1,
+2. closes each question and opens the next, with the bars live as votes come in,
+3. after the third, applies the result and shows it deploying,
+4. starts the race, whether or not the audience's deployment serves yet. If it
+   crashed, its column says why; the race goes on with the optimized one.
+
+**Reset** needs two clicks.
 
 ## After the talk
 
@@ -108,22 +116,28 @@ needs two clicks.
 ./dot.nu destroy google
 ```
 
-## Not verified yet
+## What a rehearsal on Google showed
 
-Everything here was written against Modelplane v0.5.0 and has not yet run on a
-real cluster. These are the parts most likely to need a change in the first
-rehearsal:
+Verified on GKE with Modelplane v0.5.0: setup, nip.io with a real certificate,
+voting, the bridge applying the result two seconds after the vote, both FP8 and
+full precision serving through the gateway, and the load test.
 
-- **Tensor parallelism without `/dev/shm`.** The engine template accepts no
-  volumes. Modelplane's own TP8 recipe runs without one; if NCCL complains,
-  `NCCL_SHM_DISABLE=1` is the fallback.
-- **The draft model alongside a ModelCache.** The cache sets `HF_HUB_CACHE` to
-  its mount; if that mount is read-only, downloading the draft model fails.
-- **`Qwen/Qwen3-8B-FP8` with `--kv-cache-dtype=fp8` and a draft model** on vLLM
-  v0.27.1.
-- **`runai_streamer`** being in the `vllm/vllm-openai` image, for `--cache`.
+- Full precision leaves room for 2.79 conversations of 8,192 tokens on an L4;
+  FP8 weights and KV cache leave room for 17.03. Under the load test, FP8
+  served about 43% more tokens per second.
+- A draft model doesn't fit next to full-precision Qwen3-8B on one L4 (0.25 GiB
+  left for the KV cache), which is why question 3 uses n-gram speculation.
+
+Not verified yet:
+
+- **Tensor parallelism** (question 2, A), including without `/dev/shm`. If NCCL
+  complains, `NCCL_SHM_DISABLE=1` is the fallback.
+- **N-gram speculation** on vLLM v0.27.1, and whether it pays off under load.
+- **The race screen, accuracy test and crash reasons** against real engines.
+  They are tested against a stand-in gateway.
+- **`--cache`**, and `runai_streamer` being in the `vllm/vllm-openai` image.
 - **The Datadog sink**: `type: datadog` with `api.key` and `api.site` in its
   config.
-- **The kubeconfig Secret name** setup looks for (`*vote*-kubeconfig`).
-- **Measuring answer quality.** Only question 1 can change an answer; the other
-  two are lossless. Nothing measures quality yet.
+- **AWS.** It has no two-L4 instance, and with whole-node accounting each
+  engine pod would take a whole four-L4 `g6.12xlarge`. It needs a rethink
+  before it is a fallback.

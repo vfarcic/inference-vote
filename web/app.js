@@ -16,34 +16,44 @@
     connect();
   }
 
-  function tallyHTML(s, q, showWinner) {
+  // 0:07, 4:41, 12:00
+  function clock(seconds) {
+    const s = Math.max(0, Math.floor(seconds));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+  const since = (t) => (t ? (Date.now() - new Date(t)) / 1000 : 0);
+
+  function tallyHTML(s, q) {
     const [a, b] = s.tally[q];
     const total = a + b || 1;
     const question = s.questions[q];
-    const row = (label, n, opt) => {
-      const won = showWinner && s.winners[q] === opt;
-      return `<div class="bar ${won ? "won" : ""}">
+    const row = (label, n) => `<div class="bar">
         <div class="fill" style="width:${Math.round((n / total) * 100)}%"></div>
         <span class="label">${esc(label)}</span><span class="count">${n}</span>
       </div>`;
-    };
-    return row(question.a, a, "A") + row(question.b, b, "B");
+    return row(question.a, a) + row(question.b, b);
+  }
+
+  // One line per engine pod: two copies show as two lines, so name them.
+  function podsHTML(pods, applied) {
+    if (!pods || !pods.length) {
+      return `<ul class="steps"><li>${applied ? "Modelplane is scheduling it" : "Handing it to Modelplane"}</li></ul>`;
+    }
+    return `<ul class="steps">${pods.map((p, i) => {
+      const who = pods.length > 1 ? `Copy ${i + 1}` : "Engine";
+      const crashed = p.restarts
+        ? `<span class="crash">crashed ${p.restarts} ${p.restarts === 1 ? "time" : "times"}${p.reason ? `: ${esc(p.reason)}` : ""}</span>`
+        : "";
+      return `<li class="${p.step === "ready" ? "done" : p.restarts ? "bad" : ""}">${who}: ${esc(p.step)}${crashed}</li>`;
+    }).join("")}</ul>`;
   }
 
   function progressHTML(s) {
-    const pods = s.progress.pods || [];
-    const elapsed = s.started ? Math.round((Date.now() - new Date(s.started)) / 1000) : 0;
-    const steps = pods.length
-      ? pods.map((p) => `<li class="${p.step === "ready" ? "done" : ""}">${esc(p.step)}</li>`).join("")
-      : `<li>${s.progress.applied ? "Modelplane is scheduling it" : "Handing it to Modelplane"}</li>`;
-    return `<p class="muted">${elapsed}s since the votes closed</p><ul class="steps">${steps}</ul>`;
+    return `<p class="muted">${clock(since(s.started))} since the votes closed</p>${podsHTML(s.progress.pods, s.progress.applied)}`;
   }
 
-  function summaryHTML(s) {
-    const swapped = s.swapped
-      ? `<p class="note">You picked exactly the optimized configuration. To give you something to compare, we're deploying its opposite.</p>`
-      : "";
-    return `${swapped}<ol class="summary">${(s.summary || []).map((d) => `<li>${esc(d)}</li>`).join("")}</ol>`;
+  function summaryHTML(summary) {
+    return `<ol class="summary">${(summary || []).map((d) => `<li>${esc(d)}</li>`).join("")}</ol>`;
   }
 
   // ----- audience -----
@@ -57,12 +67,14 @@
       fetch("/api/vote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, option }) })
         .then((r) => r.json()).then(render);
 
-    function chatHTML() {
+    function chatHTML(s) {
+      if (!s.serving) target = "optimized";
       const log = chats[target].map((m) => `<div class="msg ${m.role}">${esc(m.content)}${m.meta ? `<span class="meta">${esc(m.meta)}</span>` : ""}</div>`).join("");
       return `<div class="tabs">
-          <button data-target="audience" class="${target === "audience" ? "on" : ""}">Your pick</button>
+          <button data-target="audience" class="${target === "audience" ? "on" : ""}" ${s.serving ? "" : "disabled"}>Your pick</button>
           <button data-target="optimized" class="${target === "optimized" ? "on" : ""}">Optimized</button>
         </div>
+        ${s.serving ? "" : `<p class="muted">Your pick isn't serving, so only the optimized one can answer.</p>`}
         <div class="log">${log || `<p class="muted">Ask either one something, then ask the other.</p>`}</div>
         <form class="ask"><input name="q" placeholder="Ask something" autocomplete="off" maxlength="500"><button>Send</button></form>`;
     }
@@ -77,22 +89,29 @@
       } else if (s.phase === "voting") {
         const q = s.questions[s.question];
         const mine = s.mine[s.question];
-        html = `<p class="step">Question ${s.question + 1} of ${s.questions.length}</p><h1>${esc(q.text)}</h1>
-          <button class="choice ${mine === "A" ? "picked" : ""}" data-vote="A">${esc(q.a)}</button>
-          <button class="choice ${mine === "B" ? "picked" : ""}" data-vote="B">${esc(q.b)}</button>
-          <p class="muted">${mine ? "Counted. You can change it until the question closes." : "Go with your gut."}</p>`;
-      } else if (s.phase === "results") {
-        html = `<p class="step">Question ${s.question + 1} of ${s.questions.length}</p><h1>${esc(s.questions[s.question].text)}</h1>${tallyHTML(s, s.question, true)}`;
+        html = mine
+          ? `<p class="step">Question ${s.question + 1} of ${s.questions.length}</p><h1>Voted</h1>
+            <p class="muted">You picked: ${esc(mine === "A" ? q.a : q.b)}</p>
+            <p class="muted">The next question opens here on its own.</p>`
+          : `<p class="step">Question ${s.question + 1} of ${s.questions.length}</p><h1>${esc(q.text)}</h1>
+            <button class="choice" data-vote="A">${esc(q.a)}</button>
+            <button class="choice" data-vote="B">${esc(q.b)}</button>
+            <p class="muted">Go with your gut.</p>`;
       } else if (s.phase === "deploying") {
-        html = `<h1>Deploying your pick</h1>${summaryHTML(s)}${progressHTML(s)}`;
-      } else if (s.phase === "ready") {
-        html = `<h1>Both are serving</h1>${chatHTML()}`;
+        html = `<h1>Deploying your pick</h1>${summaryHTML(s.summary)}${progressHTML(s)}`;
+      } else if (s.phase === "race") {
+        html = `<h1>Chat with them</h1>${chatHTML(s)}`;
       }
+      // Re-rendering the chat would drop what someone is typing.
+      const input = root.querySelector("form.ask input");
+      const typed = input ? input.value : "";
       root.innerHTML = html;
+      const again = root.querySelector("form.ask input");
+      if (again && typed) again.value = typed;
       root.querySelectorAll("[data-vote]").forEach((b) => (b.onclick = () => vote(s.question, b.dataset.vote)));
       root.querySelectorAll("[data-target]").forEach((b) => (b.onclick = () => { target = b.dataset.target; render(); }));
       const form = root.querySelector("form.ask");
-      if (form) form.onsubmit = (e) => { e.preventDefault(); ask(form.q.value.trim()); };
+      if (form) form.onsubmit = (e) => { e.preventDefault(); const text = form.q.value.trim(); form.q.value = ""; ask(text); };
     }
 
     function ask(text) {
@@ -112,7 +131,7 @@
         .finally(() => render());
     }
 
-    // The deploying view counts seconds, so it needs a tick between events.
+    // The deploying view counts time, so it needs a tick between events.
     setInterval(() => state && state.phase === "deploying" && render(), 1000);
     stream(render);
   }
@@ -125,6 +144,7 @@
     const next = document.getElementById("next");
     const reset = document.getElementById("reset");
     let state = null;
+    let race = null;
     let armed = false;
 
     try { token.value = localStorage.getItem("presenter-token") || ""; } catch (_) {}
@@ -152,30 +172,85 @@
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); next.click(); }
     });
 
+    function sideHTML(title, side, s, isAudience) {
+      const l = side.load;
+      const a = side.accuracy;
+      let body;
+      if (!side.serving) {
+        const crashed = (side.pods || []).some((p) => p.restarts);
+        body = `<p class="${crashed ? "crash" : "muted"}">${crashed ? "Not serving." : "Not serving yet."}</p>${podsHTML(side.pods, true)}`;
+      } else {
+        const num = (v, digits) => (v === undefined || v === null ? "-" : v.toFixed(digits));
+        body = `<table class="stats">
+          <tr><th>Load-test requests</th><td>${l ? l.requests : "-"}${l && l.failures ? ` <span class="crash">(${l.failures} failed)</span>` : ""}</td></tr>
+          <tr><th>Audience messages</th><td>${side.chats}</td></tr>
+          <tr><th>Tokens per second</th><td>${l ? num(l.tokensPerSec, 0) : "-"}</td></tr>
+          <tr><th>Answer time, median</th><td>${l && l.p50 ? num(l.p50, 1) + "s" : "-"}</td></tr>
+          <tr><th>Answer time, slowest 5%</th><td>${l && l.p95 ? num(l.p95, 1) + "s" : "-"}</td></tr>
+          <tr><th>Math accuracy</th><td>${a && a.answered ? `${(100 * a.correct / a.answered).toFixed(1)}% <span class="muted">(${a.correct}/${a.answered}${a.done ? "" : ` of ${a.total}`})</span>` : "-"}</td></tr>
+        </table>
+        ${l ? `<p class="muted">${clock(l.seconds)}${l.done ? ", done" : ""}</p>` : ""}`;
+      }
+      const swapped = isAudience && s.swapped
+        ? `<p class="note">The room picked exactly the optimized configuration, so this is its opposite.</p>`
+        : "";
+      return `<section class="side"><h2>${esc(title)} <span class="config">${esc(side.config)}</span></h2>${swapped}${summaryHTML(side.summary)}${body}</section>`;
+    }
+
+    // Same line, same height: lines only one manifest has leave a gap on the
+    // other side, and what differs is marked.
+    function manifestsHTML(rows) {
+      // A long line wraps under its own start, not back at the left edge, so
+      // the indentation still reads as YAML.
+      const cell = (line) => {
+        const indent = line.length - line.trimStart().length;
+        return `<td><pre style="padding-left:${indent}ch">${esc(line.trimStart())}</pre></td>`;
+      };
+      return `<table class="manifests"><thead><tr><th>Optimized</th><th>Your pick</th></tr></thead><tbody>${rows.map((r) =>
+        `<tr class="${r.kind}">${cell(r.left)}${cell(r.right)}</tr>`).join("")}</tbody></table>`;
+    }
+
     function render(s) {
       if (s) state = s;
       s = state;
       if (!s) return;
       phase.classList.remove("bad");
-      const labels = { lobby: "Lobby", voting: `Question ${s.question + 1} open`, results: `Question ${s.question + 1} results`, deploying: "Deploying", ready: "Ready" };
+      const labels = { lobby: "Lobby", voting: `Question ${s.question + 1} open`, deploying: "Deploying", race: "Race" };
       phase.textContent = labels[s.phase] || s.phase;
-      next.disabled = s.phase === "deploying" || s.phase === "ready";
-      next.textContent = s.phase === "lobby" ? "Open question 1" : s.phase === "voting" ? "Close question" : s.phase === "results" && s.question === s.questions.length - 1 ? "Apply" : "Next question";
+      next.disabled = s.phase === "race";
+      next.textContent = s.phase === "lobby" ? "Open question 1"
+        : s.phase === "voting" ? (s.question === s.questions.length - 1 ? "Apply" : "Next question")
+        : s.phase === "deploying" ? "Start the race"
+        : "Race on";
       let html = "";
       if (s.phase === "lobby") {
         html = `<h1>Scan the QR code</h1><img class="qr" src="/qr.png" alt="QR code for ${esc(location.host)}"><p class="muted">${esc(location.host)}</p>`;
-      } else if (s.phase === "voting" || s.phase === "results") {
+      } else if (s.phase === "voting") {
         const votes = s.tally[s.question][0] + s.tally[s.question][1];
-        html = `<p class="step">Question ${s.question + 1} of ${s.questions.length} - ${votes} votes</p><h1>${esc(s.questions[s.question].text)}</h1>${tallyHTML(s, s.question, s.phase === "results")}`;
-      } else {
-        html = `<h1>${s.phase === "ready" ? "Both are serving" : "Deploying " + esc(s.deployed)}</h1>
-          <p class="muted">Audience picked ${esc(s.audience)}, optimized is ${esc(s.optimized)}</p>${summaryHTML(s)}${s.phase === "deploying" ? progressHTML(s) : ""}`;
+        html = `<p class="step">Question ${s.question + 1} of ${s.questions.length} - ${votes} votes</p><h1>${esc(s.questions[s.question].text)}</h1>${tallyHTML(s, s.question)}`;
+      } else if (s.phase === "deploying") {
+        html = `<h1>Deploying your pick</h1>${summaryHTML(s.summary)}${progressHTML(s)}`;
+      } else if (s.phase === "race") {
+        html = race
+          ? `<h1>The race <span class="muted">${clock(since(race.started))}</span></h1>
+            <div class="race">${sideHTML("Optimized", race.optimized, s, false)}${sideHTML("Your pick", race.audience, s, true)}</div>
+            ${manifestsHTML(race.manifests)}`
+          : `<h1>The race</h1><p class="muted">Starting...</p>`;
       }
+      // Keep the manifests where the presenter scrolled them.
+      const y = window.scrollY;
       root.innerHTML = html;
+      window.scrollTo(0, y);
+    }
+
+    function pollRace() {
+      if (!state || state.phase !== "race") { race = null; return; }
+      fetch("/api/race").then((r) => (r.status === 200 ? r.json() : null)).then((r) => { race = r; render(); }).catch(() => {});
     }
 
     setInterval(() => state && state.phase === "deploying" && render(), 1000);
-    stream(render);
+    setInterval(pollRace, 2000);
+    stream((s) => { render(s); if (s.phase === "race" && !race) pollRace(); });
   }
 
   window.InferenceVote = { audience, presenter };

@@ -50,7 +50,7 @@ var Questions = []Question{
 		ID:    3,
 		Text:  "How should the model write its answers?",
 		A:     "One word at a time, the normal way",
-		B:     "Let a small model guess ahead, and the big one check",
+		B:     "Guess ahead from what's already in the conversation, and let the model check",
 		Topic: "speculative decoding",
 	},
 }
@@ -107,11 +107,10 @@ func (c Config) Describe() []string {
 }
 
 const (
-	Image      = "vllm/vllm-openai:v0.27.1"
-	Model16    = "Qwen/Qwen3-8B"
-	Model8     = "Qwen/Qwen3-8B-FP8"
-	DraftModel = "Qwen/Qwen3-0.6B"
-	Namespace  = "ml-team"
+	Image     = "vllm/vllm-openai:v0.27.1"
+	Model16   = "Qwen/Qwen3-8B"
+	Model8    = "Qwen/Qwen3-8B-FP8"
+	Namespace = "ml-team"
 )
 
 // Options are how a config is deployed rather than what it is: the same for
@@ -160,10 +159,12 @@ func Args(c Config, o Options) []string {
 		args = append(args, "--tensor-parallel-size=2")
 	}
 	if c[2] == B {
-		args = append(args, fmt.Sprintf(
-			`--speculative-config={"method": "draft_model", "model": %q, "num_speculative_tokens": 4}`,
-			DraftModel,
-		))
+		// N-gram speculation: guesses come from matching the last few tokens
+		// against earlier in the conversation, which agent workloads repeat a
+		// lot. A draft model would guess better, but its weights and its own KV
+		// cache don't fit next to full-precision Qwen3-8B on one L4: that
+		// combination is left with 0.25 GiB of KV cache and won't start.
+		args = append(args, `--speculative-config={"method": "ngram", "num_speculative_tokens": 4, "prompt_lookup_min": 2, "prompt_lookup_max": 4}`)
 	}
 	return args
 }

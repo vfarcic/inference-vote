@@ -50,6 +50,15 @@ func InCluster() (*Client, error) {
 
 // do reads the token on every call: projected service account tokens rotate.
 func (c *Client) do(ctx context.Context, method, path, contentType string, body []byte) ([]byte, error) {
+	return c.request(ctx, method, path, contentType, "application/json", body)
+}
+
+// Raw gets a non-JSON resource, such as a pod's log.
+func (c *Client) Raw(ctx context.Context, path string) ([]byte, error) {
+	return c.request(ctx, http.MethodGet, path, "", "*/*", nil)
+}
+
+func (c *Client) request(ctx context.Context, method, path, contentType, accept string, body []byte) ([]byte, error) {
 	token, err := os.ReadFile(c.tokenFile)
 	if err != nil {
 		return nil, err
@@ -59,7 +68,7 @@ func (c *Client) do(ctx context.Context, method, path, contentType string, body 
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+string(bytes.TrimSpace(token)))
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", accept)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

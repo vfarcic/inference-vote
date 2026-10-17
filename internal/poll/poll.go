@@ -20,10 +20,9 @@ type Phase string
 
 const (
 	Lobby     Phase = "lobby"     // QR code on screen, nothing open yet
-	Voting    Phase = "voting"    // Question is open
-	Results   Phase = "results"   // Question is closed, its tally on screen
+	Voting    Phase = "voting"    // Question is open, its tally live on the presenter's screen
 	Deploying Phase = "deploying" // The winning config has been handed to the bridge
-	Ready     Phase = "ready"     // It serves, and the audience can chat with both
+	Race      Phase = "race"      // Load test and accuracy run on whatever serves; the audience chats
 )
 
 // Progress is what the screen shows while the audience's configuration comes up.
@@ -40,8 +39,10 @@ type Progress struct {
 
 // PodState is one engine pod, reduced to the step it is on.
 type PodState struct {
-	Name string `json:"name"`
-	Step string `json:"step"` // scheduling, pulling image, loading model, ready
+	Name     string `json:"name"`
+	Step     string `json:"step"`               // scheduling, pulling image, loading model, ready
+	Restarts int    `json:"restarts,omitempty"` // how many times the engine crashed
+	Reason   string `json:"reason,omitempty"`   // why it last crashed, from its log
 }
 
 // State is a snapshot, safe to serialize to anyone.
@@ -58,7 +59,14 @@ type State struct {
 	Swapped   bool              `json:"swapped"` // the audience picked the optimized config, so the opposite is deployed
 	Summary   []string          `json:"summary,omitempty"`
 	Progress  Progress          `json:"progress"`
-	Started   time.Time         `json:"started,omitempty"`
+	Started   time.Time         `json:"started,omitempty"` // when the votes were applied
+	// Serving is whether the audience's deployment answers. It is not a phase:
+	// the presenter can start the race before it serves, or without it at all.
+	Serving     bool      `json:"serving"`
+	RaceStarted time.Time `json:"raceStarted,omitempty"`
+	// Session changes on every reset, so whatever runs once per session (the
+	// race) knows a new one has begun.
+	Session int `json:"session"`
 }
 
 // Poll is safe for concurrent use.
@@ -79,6 +87,7 @@ func New(optimized choice.Config) *Poll {
 func (p *Poll) reset() {
 	p.state = State{
 		Version:   p.state.Version + 1,
+		Session:   p.state.Session + 1,
 		Phase:     Lobby,
 		Questions: choice.Questions,
 		Optimized: p.optimized.String(),
@@ -177,9 +186,9 @@ func (p *Poll) winner(q int) choice.Option {
 	}
 }
 
-// Next moves the session one step forward: open the next question, close the
-// open one, or, after the last results, apply. It returns false when there is
-// nothing left to advance to.
+// Next moves the session one step forward: open the first question, close one
+// and open the next, apply after the last, and start the race. It returns false
+// when there is nothing left to advance to.
 func (p *Poll) Next() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -188,15 +197,18 @@ func (p *Poll) Next() bool {
 	case Lobby:
 		s.Phase, s.Question = Voting, 0
 	case Voting:
+		// One press closes the question and opens the next: the tally was on
+		// the presenter's screen all along, so there is nothing left to reveal.
 		s.Winners[s.Question] = p.winner(s.Question)
-		s.Phase = Results
-	case Results:
 		if s.Question < len(choice.Questions)-1 {
 			s.Question++
-			s.Phase = Voting
 		} else {
 			p.apply()
 		}
+	case Deploying:
+		// Whether or not the audience's deployment serves yet: the talk's time
+		// is fixed, a deployment's isn't.
+		s.Phase, s.RaceStarted = Race, time.Now()
 	default:
 		return false
 	}
@@ -257,11 +269,13 @@ func (p *Poll) ReportPods(pods []PodState) {
 	p.changed()
 }
 
-// promote moves Deploying to Ready once every engine pod is ready, or the
-// control plane says the replica is. Either is enough: the pods are the faster
-// signal, the replica the authoritative one.
+// promote marks the audience's deployment as serving once every engine pod is
+// ready, or the control plane says the replica is. Either is enough: the pods
+// are the faster signal, the replica the authoritative one. Once serving, it
+// stays so for the session: a late crash shows in the pods, not by taking the
+// race away.
 func (p *Poll) promote() {
-	if p.state.Phase != Deploying {
+	if p.state.Serving || (p.state.Phase != Deploying && p.state.Phase != Race) {
 		return
 	}
 	pr := p.state.Progress
@@ -272,6 +286,6 @@ func (p *Poll) promote() {
 		}
 	}
 	if podsReady || (pr.ReplicasTotal > 0 && pr.ReplicasReady == pr.ReplicasTotal) {
-		p.state.Phase = Ready
+		p.state.Serving = true
 	}
 }

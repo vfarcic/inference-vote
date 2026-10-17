@@ -15,7 +15,8 @@ metadata:
   name: inference-vote
   namespace: inference-vote
 ---
-# Read-only, and only pods: enough to show the audience's engines coming up.
+# Read-only, and only pods: enough to show the audience's engines coming up,
+# and their logs, to say why one crashed.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -24,6 +25,9 @@ rules:
 - apiGroups: [""]
   resources: ["pods"]
   verbs: ["list"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

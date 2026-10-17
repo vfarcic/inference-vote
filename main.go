@@ -24,6 +24,7 @@ import (
 
 	"github.com/vfarcic/inference-vote/internal/bridge"
 	"github.com/vfarcic/inference-vote/internal/choice"
+	"github.com/vfarcic/inference-vote/internal/eval"
 	"github.com/vfarcic/inference-vote/internal/kube"
 	"github.com/vfarcic/inference-vote/internal/load"
 	"github.com/vfarcic/inference-vote/internal/poll"
@@ -68,8 +69,10 @@ func serve(ctx context.Context, args []string) error {
 	domain := fs.String("domain", env("DOMAIN", ""), "serve HTTPS for this name with a Let's Encrypt certificate")
 	staging := fs.Bool("acme-staging", env("ACME_STAGING", "") == "true", "use Let's Encrypt staging, for rehearsals (5 real certificates per name per week)")
 	optimized := fs.String("optimized", env("OPTIMIZED", "BBA"), "the optimized config the audience is compared against")
-	loadAgents := fs.Int("load-agents", 16, "concurrent agents per deployment once the audience's serves; 0 disables")
-	loadDuration := fs.Duration("load-duration", 12*time.Minute, "how long the load test runs")
+	loadAgents := fs.Int("load-agents", 16, "concurrent agents per deployment during the race; 0 disables")
+	loadDuration := fs.Duration("load-duration", 12*time.Minute, "how long the load test runs on each deployment")
+	evalProblems := fs.Int("eval-problems", 200, "math problems each deployment answers during the race, to measure accuracy; 0 disables")
+	modelCache := fs.Bool("cache", env("MODEL_CACHE", "") == "true", "the deployments load weights from a ModelCache (shown in the manifests)")
 	fs.Parse(args)
 
 	opt, err := choice.Parse(*optimized)
@@ -91,6 +94,13 @@ func serve(ctx context.Context, args []string) error {
 			MaxTokens:  256,
 			Seed:       42,
 		},
+		Eval: eval.Config{
+			GatewayURL: os.Getenv("GATEWAY_URL"),
+			Key:        os.Getenv("LOAD_KEY"),
+			Problems:   *evalProblems,
+			Workers:    4,
+		},
+		Options: choice.Options{Cache: *modelCache},
 	}
 	if cfg.PresenterToken == "" || cfg.BridgeToken == "" {
 		return fmt.Errorf("PRESENTER_TOKEN and BRIDGE_TOKEN must be set")
@@ -102,7 +112,7 @@ func serve(ctx context.Context, args []string) error {
 	}
 	s := server.New(cfg, poll.New(opt), k)
 	go s.WatchPods(ctx)
-	go s.StartLoadWhenReady(ctx)
+	go s.RunRace(ctx)
 
 	handler := s.Handler()
 	if *domain == "" {
