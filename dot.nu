@@ -42,6 +42,7 @@ def --env "main setup" [
     --billing-account = ""       # Google billing account to link. Auto-detected when empty
     --image = $IMAGE             # The inference-vote image
     --no-datadog                 # Do not send metrics to Datadog, so no API key is needed
+    --load-agents = 100          # Concurrent agents per deployment in the race
     --zone = ""                  # The zone for the GPU nodes; the cluster goes in its region. On Google, empty tries every zone with L4s and takes the first that has them free. On AWS, defaults to us-east-1b
 ] {
 
@@ -131,7 +132,7 @@ Modelplane is creating the inference cluster. (ansi yellow_bold)This takes 15 to
 
     (
         main setup app --domain $domain --optimized $optimized --cache=$cache
-            --acme-staging=$acme_staging --image $image
+            --acme-staging=$acme_staging --image $image --load-agents $load_agents
     )
 
     main print source
@@ -152,6 +153,7 @@ def --env "main setup app" [
     --cache                      # Must match setup's --cache
     --acme-staging               # Use Let's Encrypt staging
     --image = $IMAGE             # The inference-vote image
+    --load-agents = 100          # Concurrent agents per deployment in the race. More load makes the differences bigger, and full precision's answers slower
 ] {
 
     let provider = ($env.PROVIDER? | default "")
@@ -196,6 +198,7 @@ def --env "main setup app" [
             --from-literal $"ACME_STAGING=($acme_staging)"
             --from-literal $"OPTIMIZED=($optimized)"
             --from-literal $"MODEL_CACHE=($cache)"
+            --from-literal $"LOAD_AGENTS=($load_agents)"
             --dry-run=client --output yaml
     ) | kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename -
 

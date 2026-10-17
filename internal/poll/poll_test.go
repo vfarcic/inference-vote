@@ -123,3 +123,22 @@ func TestResetStartsANewSession(t *testing.T) {
 		t.Fatal("session did not change on reset")
 	}
 }
+
+// Every change redraws every phone, so a report that changes nothing must not
+// count as one: it closed the keyboard on phones mid-typing.
+func TestUnchangedReportsAreNotChanges(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	pods := []PodState{{Name: "a", Step: "loading model"}}
+	p.ReportPods(pods)
+	p.ReportControlPlane(true, 0, 1, []string{"Ready=False"})
+	v := p.Snapshot().Version
+	p.ReportPods([]PodState{{Name: "a", Step: "loading model"}})
+	p.ReportControlPlane(true, 0, 1, []string{"Ready=False"})
+	if p.Snapshot().Version != v {
+		t.Fatal("an unchanged report counted as a change")
+	}
+	p.ReportPods([]PodState{{Name: "a", Step: "ready"}})
+	if p.Snapshot().Version == v {
+		t.Fatal("a changed report did not count")
+	}
+}

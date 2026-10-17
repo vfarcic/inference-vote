@@ -67,22 +67,49 @@
       fetch("/api/vote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, option }) })
         .then((r) => r.json()).then(render);
 
-    function chatHTML(s) {
-      if (!s.serving) target = "optimized";
+    // The chat is drawn once. After that only the messages and the "Your pick"
+    // tab change, in place: redrawing it would replace the field someone is
+    // typing in, and close their keyboard.
+    function logHTML() {
       const log = chats[target].map((m) => `<div class="msg ${m.role}">${esc(m.content)}${m.meta ? `<span class="meta">${esc(m.meta)}</span>` : ""}</div>`).join("");
-      return `<div class="tabs">
-          <button data-target="audience" class="${target === "audience" ? "on" : ""}" ${s.serving ? "" : "disabled"}>Your pick</button>
-          <button data-target="optimized" class="${target === "optimized" ? "on" : ""}">Optimized</button>
+      return log || `<p class="muted">Ask either one something, then ask the other.</p>`;
+    }
+
+    function updateChat(s) {
+      if (!s.serving && target === "audience") target = "optimized";
+      const mine = root.querySelector('[data-target="audience"]');
+      mine.disabled = !s.serving;
+      root.querySelectorAll("[data-target]").forEach((b) => b.classList.toggle("on", b.dataset.target === target));
+      root.querySelector(".not-serving").hidden = s.serving;
+      root.querySelector(".log").innerHTML = logHTML();
+    }
+
+    function drawChat(s) {
+      root.innerHTML = `<h1>Chat with them</h1>
+        <div class="tabs">
+          <button data-target="audience">Your pick</button>
+          <button data-target="optimized">Optimized</button>
         </div>
-        ${s.serving ? "" : `<p class="muted">Your pick isn't serving, so only the optimized one can answer.</p>`}
-        <div class="log">${log || `<p class="muted">Ask either one something, then ask the other.</p>`}</div>
+        <p class="muted not-serving">Your pick isn't serving, so only the optimized one can answer.</p>
+        <div class="log"></div>
         <form class="ask"><input name="q" placeholder="Ask something" autocomplete="off" maxlength="500"><button>Send</button></form>`;
+      root.dataset.view = "race";
+      root.querySelectorAll("[data-target]").forEach((b) => (b.onclick = () => { target = b.dataset.target; updateChat(state); }));
+      const form = root.querySelector("form.ask");
+      form.onsubmit = (e) => { e.preventDefault(); const text = form.q.value.trim(); form.q.value = ""; ask(text); };
+      updateChat(s);
     }
 
     function render(s) {
       if (s) state = s;
       s = state;
       if (!s) return;
+      if (s.phase === "race") {
+        if (root.dataset.view === "race") updateChat(s);
+        else drawChat(s);
+        return;
+      }
+      root.dataset.view = s.phase;
       let html = "";
       if (s.phase === "lobby") {
         html = `<h1>You're in.</h1><p class="muted">The first question opens in a moment. Keep this page open.</p>`;
@@ -99,19 +126,9 @@
             <p class="muted">Go with your gut.</p>`;
       } else if (s.phase === "deploying") {
         html = `<h1>Deploying your pick</h1>${summaryHTML(s.summary)}${progressHTML(s)}`;
-      } else if (s.phase === "race") {
-        html = `<h1>Chat with them</h1>${chatHTML(s)}`;
       }
-      // Re-rendering the chat would drop what someone is typing.
-      const input = root.querySelector("form.ask input");
-      const typed = input ? input.value : "";
       root.innerHTML = html;
-      const again = root.querySelector("form.ask input");
-      if (again && typed) again.value = typed;
       root.querySelectorAll("[data-vote]").forEach((b) => (b.onclick = () => vote(s.question, b.dataset.vote)));
-      root.querySelectorAll("[data-target]").forEach((b) => (b.onclick = () => { target = b.dataset.target; render(); }));
-      const form = root.querySelector("form.ask");
-      if (form) form.onsubmit = (e) => { e.preventDefault(); const text = form.q.value.trim(); form.q.value = ""; ask(text); };
     }
 
     function ask(text) {
@@ -119,7 +136,7 @@
       const which = target;
       const log = chats[which];
       log.push({ role: "user", content: text });
-      render();
+      updateChat(state);
       const messages = log.filter((m) => m.role !== "error").map(({ role, content }) => ({ role, content }));
       fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ target: which, messages }) })
         .then(async (r) => {
@@ -128,7 +145,7 @@
         })
         .then((a) => log.push({ role: "assistant", content: a.content, meta: `${a.seconds.toFixed(1)}s, ${a.tokens} tokens` }))
         .catch((e) => log.push({ role: "error", content: e.message.trim() }))
-        .finally(() => render());
+        .finally(() => updateChat(state));
     }
 
     // The deploying view counts time, so it needs a tick between events.
@@ -194,7 +211,9 @@
       const swapped = isAudience && s.swapped
         ? `<p class="note">The room picked exactly the optimized configuration, so this is its opposite.</p>`
         : "";
-      return `<section class="side"><h2>${esc(title)} <span class="config">${esc(side.config)}</span></h2>${swapped}${summaryHTML(side.summary)}${body}</section>`;
+      // Four parts, one per row of the shared grid, so both columns line up
+      // whichever has the longer answers.
+      return `<section class="side"><h2>${esc(title)} <span class="config">${esc(side.config)}</span></h2><div>${swapped}${summaryHTML(side.summary)}</div><div>${body}</div></section>`;
     }
 
     // Same line, same height: lines only one manifest has leave a gap on the

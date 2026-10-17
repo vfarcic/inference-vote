@@ -73,8 +73,10 @@ button:disabled { opacity: 0.4; cursor: default; }
 .pill.bad { color: var(--bad); }
 
 /* The race: two deployments side by side, then their manifests line by line. */
-.race { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-.side { background: var(--panel); border-radius: 12px; padding: 16px 20px; }
+/* Both columns share the grid's rows (subgrid), so the numbers line up even when
+   one side's answers take more lines. */
+.race { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto auto; column-gap: 20px; margin-bottom: 24px; }
+.side { background: var(--panel); border-radius: 12px; padding: 16px 20px; display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0; }
 .side h2 { margin: 0 0 8px; }
 .side .config { color: var(--accent); font-family: ui-monospace, Menlo, monospace; margin-left: 8px; }
 .side .summary { color: var(--muted); padding-left: 1.2em; }
@@ -90,4 +92,4 @@ button:disabled { opacity: 0.4; cursor: default; }
 .manifests tr.left td:first-child, .manifests tr.right td:last-child { background: #2a2414; }
 .manifests tr.left td:last-child, .manifests tr.right td:first-child { background: repeating-linear-gradient(45deg, transparent 0 6px, #161a23 6px 12px); }
 
-@media (max-width: 800px) { .race { grid-template-columns: 1fr; } }
+@media (max-width: 800px) { .race { grid-template-columns: 1fr; } .side { grid-template-rows: auto; grid-row: auto; } }

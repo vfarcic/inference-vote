@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -69,7 +70,8 @@ func serve(ctx context.Context, args []string) error {
 	domain := fs.String("domain", env("DOMAIN", ""), "serve HTTPS for this name with a Let's Encrypt certificate")
 	staging := fs.Bool("acme-staging", env("ACME_STAGING", "") == "true", "use Let's Encrypt staging, for rehearsals (5 real certificates per name per week)")
 	optimized := fs.String("optimized", env("OPTIMIZED", "BBA"), "the optimized config the audience is compared against")
-	loadAgents := fs.Int("load-agents", 16, "concurrent agents per deployment during the race; 0 disables")
+	agents, _ := strconv.Atoi(env("LOAD_AGENTS", "100"))
+	loadAgents := fs.Int("load-agents", agents, "concurrent agents per deployment during the race; 0 disables")
 	loadDuration := fs.Duration("load-duration", 12*time.Minute, "how long the load test runs on each deployment")
 	evalProblems := fs.Int("eval-problems", 200, "math problems each deployment answers during the race, to measure accuracy; 0 disables")
 	modelCache := fs.Bool("cache", env("MODEL_CACHE", "") == "true", "the deployments load weights from a ModelCache (shown in the manifests)")

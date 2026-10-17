@@ -8,6 +8,7 @@
 package poll
 
 import (
+	"slices"
 	"sync"
 	"time"
 
@@ -249,13 +250,18 @@ func (p *Poll) Desired() (choice.Config, bool) {
 	return c, err == nil
 }
 
-// ReportControlPlane records what the bridge saw on the control plane.
+// ReportControlPlane records what the bridge saw on the control plane. The
+// bridge reports every few seconds; phones hear about it only when something
+// in the report changed, since every change redraws their screens.
 func (p *Poll) ReportControlPlane(applied bool, ready, total int, conditions []string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	pr := &p.state.Progress
-	pr.Applied, pr.ReplicasReady, pr.ReplicasTotal, pr.Conditions = applied, ready, total, conditions
 	pr.ReportedAt = time.Now()
+	if pr.Applied == applied && pr.ReplicasReady == ready && pr.ReplicasTotal == total && slices.Equal(pr.Conditions, conditions) {
+		return
+	}
+	pr.Applied, pr.ReplicasReady, pr.ReplicasTotal, pr.Conditions = applied, ready, total, conditions
 	p.promote()
 	p.changed()
 }
@@ -264,6 +270,9 @@ func (p *Poll) ReportControlPlane(applied bool, ready, total int, conditions []s
 func (p *Poll) ReportPods(pods []PodState) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if slices.Equal(p.state.Progress.Pods, pods) {
+		return
+	}
 	p.state.Progress.Pods = pods
 	p.promote()
 	p.changed()
