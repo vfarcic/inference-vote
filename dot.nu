@@ -10,6 +10,15 @@ const KIND_CLUSTER = "inference-vote"
 const IMAGE = "ghcr.io/vfarcic/inference-vote:latest"
 const WORKLOAD_KUBECONFIG = "kubeconfig-vote.yaml"
 
+# Zones with L4s, in the order setup tries them: US first, then Europe. Setup
+# takes the first that has the GPU nodes free right now.
+const GOOGLE_ZONES = [
+    us-central1-a us-central1-b us-central1-c
+    us-east4-a us-east4-c us-east1-b us-east1-c us-east1-d
+    us-west1-a us-west1-b us-west1-c us-west4-a us-west4-c
+    europe-west4-a europe-west4-b europe-west4-c europe-west1-b europe-west1-c
+]
+
 def main [] {}
 
 # Sets up everything the talk needs
@@ -33,7 +42,7 @@ def --env "main setup" [
     --billing-account = ""       # Google billing account to link. Auto-detected when empty
     --image = $IMAGE             # The inference-vote image
     --no-datadog                 # Do not send metrics to Datadog, so no API key is needed
-    --zone = ""                  # The zone for the GPU nodes. Defaults to us-central1-a on Google, us-east-1b on AWS. Change it when that zone is out of GPUs
+    --zone = ""                  # The zone for the GPU nodes; the cluster goes in its region. On Google, empty tries every zone with L4s and takes the first that has them free. On AWS, defaults to us-east-1b
 ] {
 
     if not ($provider in ["google" "aws"]) {
@@ -55,14 +64,22 @@ def --env "main setup" [
     $"export PROVIDER=($provider)\n" | save --append .env
     $env.PROVIDER = $provider
 
+    # Modelplane counts capacity in whole nodes, not GPUs: every engine pod that
+    # claims a GPU takes a node to itself. Two copies take two nodes, one engine
+    # split across both GPUs takes one. The audience may pick two copies, so
+    # there are two nodes for them on top of what the optimized config takes.
+    let nodes = 2 + (if ($optimized | str substring 1..1) == "B" { 2 } else { 1 })
+
     let creds = (main get creds $provider)
 
     main create control-plane
 
-    if $provider == "google" {
+    let zone = if $provider == "google" {
         setup google $billing_account
+        reserve gpus $env.PROJECT_ID (if $zone == "" { $GOOGLE_ZONES } else { [$zone] }) $nodes
     } else {
         setup aws $creds
+        if $zone == "" { "us-east-1b" } else { $zone }
     }
 
     # Two gateway callers, so Datadog can tell the audience's chat from the load
@@ -78,17 +95,14 @@ def --env "main setup" [
     ) | kubectl apply --filename -
     kubectl --namespace modelplane-system label secret inference-vote-keys inference-vote/keys=true --overwrite
 
-    # GPUs run out one zone at a time, so the zone is the first thing to change
-    # when nodes stay stuck provisioning.
+    # The platform file names a default zone; the cluster's region follows the
+    # zone: us-central1-a is in us-central1, us-east-1b in us-east-1.
     let default_zone = if $provider == "google" { "us-central1-a" } else { "us-east-1b" }
-    let zone = if $zone == "" { $default_zone } else { $zone }
-    # Modelplane counts capacity in whole nodes, not GPUs: every engine pod that
-    # claims a GPU takes a node to itself. Two copies take two nodes, one engine
-    # split across both GPUs takes one. The audience may pick two copies, so
-    # there are two nodes for them on top of what the optimized config takes.
-    let nodes = 2 + (if ($optimized | str substring 1..1) == "B" { 2 } else { 1 })
+    let default_region = if $provider == "google" { "us-central1" } else { "us-east-1" }
+    let region = if $provider == "google" { $zone | str replace --regex '-[a-z]$' '' } else { $zone | str replace --regex '[a-z]$' '' }
     open --raw $"modelplane/($provider)/platform.yaml"
         | str replace $"- ($default_zone)" $"- ($zone)"
+        | str replace $"region: ($default_region)" $"region: ($region)"
         | str replace --all --regex '(?m)^(\s+(?:min|max)?[nN]odeCount): \d+' $"${1}: ($nodes)"
         | kubectl apply --filename -
     kubectl apply --filename modelplane/inference.yaml
@@ -335,6 +349,37 @@ aws_secret_access_key = ($creds.aws_secret_access_key)
         }
     } | to yaml | kubectl apply --filename -
 
+}
+
+# Holds the GPU nodes before anything asks for them, and returns the zone
+#
+# GPUs run out one zone at a time, and a GKE node pool that can't get them
+# just waits. A reservation succeeds only if the capacity is free right now, so
+# setup tries zones in order and keeps the first one that grants it. GKE nodes
+# consume a matching reservation in their own project on their own, so the node
+# pool lands on capacity that is already ours. Deleting the project, as destroy
+# does, deletes the reservation with it.
+def "reserve gpus" [project: string, zones: list<string>, nodes: int] {
+    for zone in $zones {
+        let result = (
+            gcloud compute reservations create inference-vote-gpus --project $project --zone $zone
+                --vm-count $nodes --machine-type g2-standard-24 --accelerator count=2,type=nvidia-l4
+        ) | complete
+        if $result.exit_code == 0 {
+            print $"Reserved (ansi yellow_bold)($nodes)(ansi reset) GPU nodes in (ansi yellow_bold)($zone)(ansi reset)."
+            $"export GPU_ZONE=($zone)\n" | save --append .env
+            return $zone
+        }
+        if ($result.stderr | str contains "Quota") {
+            print $"(ansi red_bold)Not enough GPU quota in ($zone)(ansi reset):\n($result.stderr)"
+            print $"Request NVIDIA_L4_GPUS of at least ($nodes * 2) for the project, or pass --zone with another region."
+            exit 1
+        }
+        let why = if ($result.stderr | str contains "ZONE_RESOURCE_POOL_EXHAUSTED") { "no GPUs free" } else { $result.stderr | lines | first }
+        print $"($zone): ($why)"
+    }
+    print $"(ansi red_bold)None of ($zones | str join ', ') has ($nodes) GPU nodes free right now.(ansi reset) Try again in a few minutes."
+    exit 1
 }
 
 # Waits for a CRD that a Crossplane package installs asynchronously
