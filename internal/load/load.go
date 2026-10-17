@@ -14,8 +14,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -36,6 +38,7 @@ type Result struct {
 	Target    string
 	Requests  int
 	Failures  int
+	Reasons   map[string]int // why requests failed, so a failure count can be explained
 	Tokens    int
 	Latencies []time.Duration
 	Elapsed   time.Duration
@@ -43,13 +46,32 @@ type Result struct {
 
 func (r Result) String() string {
 	if len(r.Latencies) == 0 {
-		return fmt.Sprintf("%-10s no successful requests (%d failures)", r.Target, r.Failures)
+		return fmt.Sprintf("%-10s no successful requests (%d failures)", r.Target, r.Failures) + r.reasons()
 	}
 	slices.Sort(r.Latencies)
 	p := func(q float64) time.Duration { return r.Latencies[int(q*float64(len(r.Latencies)-1))] }
 	return fmt.Sprintf("%-10s %5d requests %4d failures %7.1f tokens/s  p50 %5.1fs  p95 %5.1fs",
 		r.Target, r.Requests, r.Failures, float64(r.Tokens)/r.Elapsed.Seconds(),
-		p(0.50).Seconds(), p(0.95).Seconds())
+		p(0.50).Seconds(), p(0.95).Seconds()) + r.reasons()
+}
+
+func (r Result) reasons() string {
+	if len(r.Reasons) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(r.Reasons))
+	for k := range r.Reasons {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, func(a, b string) int { return r.Reasons[b] - r.Reasons[a] })
+	var b strings.Builder
+	for i, k := range keys {
+		if i == 3 {
+			break
+		}
+		fmt.Fprintf(&b, "\n    %4dx %s", r.Reasons[k], k)
+	}
+	return b.String()
 }
 
 // Run loads every target in parallel and returns one result per target. Each
@@ -73,6 +95,10 @@ func Run(ctx context.Context, cfg Config) []Result {
 					res.Requests++
 					if err != nil {
 						res.Failures++
+						if res.Reasons == nil {
+							res.Reasons = map[string]int{}
+						}
+						res.Reasons[err.Error()]++
 						return
 					}
 					res.Tokens += tokens
@@ -137,7 +163,11 @@ func complete(ctx context.Context, client *http.Client, cfg Config, target strin
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", 0, fmt.Errorf("%s answered %d", target, resp.StatusCode)
+		// The first line of the body says why, such as a context length error;
+		// numbers in it are dropped so the same reason counts once.
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
+		reason := regexp.MustCompile(`[0-9]+`).ReplaceAllString(strings.SplitN(string(msg), "\n", 2)[0], "N")
+		return "", 0, fmt.Errorf("%d %s", resp.StatusCode, reason)
 	}
 	var out struct {
 		Choices []struct {

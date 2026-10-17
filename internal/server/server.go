@@ -24,6 +24,7 @@ import (
 	"github.com/vfarcic/inference-vote/internal/load"
 	"github.com/vfarcic/inference-vote/internal/poll"
 	"github.com/vfarcic/inference-vote/web"
+	"rsc.io/qr"
 )
 
 type Config struct {
@@ -60,6 +61,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/presenter/reset", s.presenter(s.poll.Reset))
 	mux.HandleFunc("GET /api/bridge/desired", s.bridgeDesired)
 	mux.HandleFunc("POST /api/bridge/report", s.bridgeReport)
+	mux.HandleFunc("GET /qr.png", qrCode)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	return mux
 }
@@ -409,4 +411,19 @@ func (l *limiter) allow(key string) bool {
 	}
 	l.seen[key] = append(recent, now)
 	return true
+}
+
+// qrCode is the QR code the presenter puts on screen. It encodes the address
+// the presenter page was opened on, so it is right for nip.io and the real
+// domain alike without being told either.
+func qrCode(w http.ResponseWriter, r *http.Request) {
+	code, err := qr.Encode("https://"+r.Host, qr.M)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	code.Scale = 16
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(code.PNG())
 }

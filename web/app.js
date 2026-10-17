@@ -163,7 +163,7 @@
       next.textContent = s.phase === "lobby" ? "Open question 1" : s.phase === "voting" ? "Close question" : s.phase === "results" && s.question === s.questions.length - 1 ? "Apply" : "Next question";
       let html = "";
       if (s.phase === "lobby") {
-        html = `<h1>Scan the QR code</h1><p class="muted">Optimized: ${esc(s.optimized)}</p>`;
+        html = `<h1>Scan the QR code</h1><img class="qr" src="/qr.png" alt="QR code for ${esc(location.host)}"><p class="muted">${esc(location.host)}</p>`;
       } else if (s.phase === "voting" || s.phase === "results") {
         const votes = s.tally[s.question][0] + s.tally[s.question][1];
         html = `<p class="step">Question ${s.question + 1} of ${s.questions.length} - ${votes} votes</p><h1>${esc(s.questions[s.question].text)}</h1>${tallyHTML(s, s.question, s.phase === "results")}`;
