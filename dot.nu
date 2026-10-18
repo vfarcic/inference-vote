@@ -63,13 +63,10 @@ def --env "main setup" [
 
     let pools = (pool sizes $provider $optimized)
 
-    if $provider == "aws" {
-        if not ("AWS_ACCESS_KEY_ID" in $env) {
-            aws credentials from cli
-        }
-        if not ("AWS_ACCOUNT_ID" in $env) {
-            $env.AWS_ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text | str trim)
-        }
+    # Keys that are not in the environment are asked for. With the keys but no
+    # account ID, the ID comes from the keys.
+    if $provider == "aws" and ("AWS_ACCESS_KEY_ID" in $env) and not ("AWS_ACCOUNT_ID" in $env) {
+        $env.AWS_ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text | str trim)
     }
     let creds = (main get creds $provider)
 
@@ -406,21 +403,6 @@ def platform [provider: string, zone: string, pools: record] {
                 $pool | upsert nodeCount $n | upsert minNodeCount $n | upsert maxNodeCount $n | upsert zones [$zone]
             })
     } | each { to yaml } | str join "---\n"
-}
-
-# Loads AWS credentials from the AWS CLI's own login, so setup doesn't prompt
-def --env "aws credentials from cli" [] {
-    let result = (aws configure export-credentials --format process | complete)
-    if $result.exit_code != 0 {
-        return
-    }
-    let c = ($result.stdout | from json)
-    if ($c.SessionToken? | default "") != "" {
-        print $"(ansi yellow_bold)Your AWS login is temporary(ansi reset) \(it has a session token\). Crossplane needs keys that outlive the talk; set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to an access key instead."
-        exit 1
-    }
-    $env.AWS_ACCESS_KEY_ID = $c.AccessKeyId
-    $env.AWS_SECRET_ACCESS_KEY = $c.SecretAccessKey
 }
 
 # Regions setup tries on AWS, in order. Every zone in them that offers both
