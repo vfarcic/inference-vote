@@ -4,6 +4,9 @@
 #
 # The demo org is shared, so everything is tagged env:cyoa-kubecon-na-26: filter
 # dashboards and monitors on it, and delete by it after the talk.
+#
+# Modelplane says which deployment, replica and engine a series comes from in
+# resource attributes, which the exporter drops unless told to make them tags.
 apiVersion: modelplane.ai/v1alpha1
 kind: TelemetryDestination
 metadata:
@@ -18,6 +21,8 @@ spec:
       api:
         key: ${env:DD_API_KEY}
         site: ${env:DD_SITE}
+      metrics:
+        resource_attributes_as_tags: true
       host_metadata:
         tags:
         - env:cyoa-kubecon-na-26
