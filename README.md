@@ -72,6 +72,12 @@ Setup takes 20 to 30 minutes, most of it Modelplane creating the cluster, and
 prints the voting app's address and the presenter token at the end. Accounts
 outside Datadog's US1 site also need `DD_SITE`, such as `datadoghq.eu`.
 
+- **Keys** come from the environment, and setup asks for any that are missing:
+  `DD_API_KEY`, and on AWS `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+  (the account ID is looked up from them). `USE_VALS=1 devbox shell` loads
+  them from Google Cloud Secret Manager, through the references in
+  `.env.vals.yaml`.
+
 - **GPUs run out one zone at a time**, and an L4 zone that has none now may
   have some a minute later. Setup tries every zone with L4s, US first, and
   reserves the GPU nodes in the first one that grants them; GKE's nodes then
@@ -121,6 +127,16 @@ QR code. **Next** (or the right arrow, or a clicker):
    minutes more,
 4. starts the race, whether or not the audience's deployment serves yet. If it
    crashed, its column says why; the race goes on with the optimized one.
+5. during the race, shows the results so far, and again refreshes them. The
+   app decides who won each measure, a margin under 10% being a tie; the
+   optimized model explains why, from the numbers and what the engines
+   reported, in a few seconds even under the load test. The tests keep
+   running, and the results also come on their own when they finish, after 12
+   minutes.
+
+If the room picks exactly the optimized config, the opposite of every answer
+races it instead: their pick is the optimized one, and the other side is called
+unoptimized.
 
 **Reset** needs two clicks.
 
