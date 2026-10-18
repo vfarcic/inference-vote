@@ -55,7 +55,8 @@ vLLM. `inference-vote render --config BBA` prints any of them.
 ## Before the talk
 
 You need Docker (give it 8 GB of memory), Devbox, a Datadog API key (unless
-you pass `--no-datadog`), and a Google Cloud login.
+you pass `--no-datadog`), and a Google Cloud login, or, for `aws`, an AWS
+access key.
 
 ```sh
 devbox shell
@@ -157,6 +158,9 @@ Not verified yet:
 - **`--cache`**, and `runai_streamer` being in the `vllm/vllm-openai` image.
 - **The Datadog sink**: `type: datadog` with `api.key` and `api.site` in its
   config.
-- **AWS.** It has no two-L4 instance, and with whole-node accounting each
-  engine pod would take a whole four-L4 `g6.12xlarge`. It needs a rethink
-  before it is a fallback.
+- **AWS** (`./dot.nu setup aws`). AWS has no two-L4 instance, so it runs two
+  pools: one-L4 `g6.2xlarge` nodes for copies and a four-L4 `g6.12xlarge` for
+  one engine split across two GPUs. Setup reserves both in the first zone of
+  us-east-1, us-east-2 or us-west-2 that has them, and destroy cancels the
+  reservations, which otherwise bill on their own. It needs a G-instance vCPU
+  quota of 80 and an access key (not a temporary login). Written, not yet run.

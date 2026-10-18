@@ -32,7 +32,7 @@ def main [] {}
 # > ./dot.nu setup google                  # https://<load balancer IP>.nip.io, no DNS to set
 # > ./dot.nu setup google --no-datadog
 # > ./dot.nu setup google --zone us-central1-b
-# > ./dot.nu setup aws --domain vote.devopstoolkit.ai
+# > ./dot.nu setup aws
 def --env "main setup" [
     provider: string             # Cloud provider. `google` or `aws`
     --domain = ""                # Public name for the voting app. Empty, the default, uses <IP>.nip.io (Google only). Set it only if nip.io is down
@@ -43,15 +43,11 @@ def --env "main setup" [
     --image = $IMAGE             # The inference-vote image
     --no-datadog                 # Do not send metrics to Datadog, so no API key is needed
     --load-agents = 100          # Concurrent agents per deployment in the race
-    --zone = ""                  # The zone for the GPU nodes; the cluster goes in its region. On Google, empty tries every zone with L4s and takes the first that has them free. On AWS, defaults to us-east-1b
+    --zone = ""                  # The zone for the GPU nodes; the cluster goes in its region. Empty tries every zone with L4s and takes the first that has them free
 ] {
 
     if not ($provider in ["google" "aws"]) {
         print $"(ansi red_bold)($provider)(ansi reset) is not supported. Use `google` or `aws`."
-        exit 1
-    }
-    if $domain == "" and $provider != "google" {
-        print $"(ansi red_bold)--domain is required on ($provider)(ansi reset): its load balancer has a name rather than an IP, so nip.io cannot point to it."
         exit 1
     }
 
@@ -65,22 +61,21 @@ def --env "main setup" [
     $"export PROVIDER=($provider)\n" | save --append .env
     $env.PROVIDER = $provider
 
-    # Modelplane counts capacity in whole nodes, not GPUs: every engine pod that
-    # claims a GPU takes a node to itself. Two copies take two nodes, one engine
-    # split across both GPUs takes one. The audience may pick two copies, so
-    # there are two nodes for them on top of what the optimized config takes.
-    let nodes = 2 + (if ($optimized | str substring 1..1) == "B" { 2 } else { 1 })
+    let pools = (pool sizes $provider $optimized)
 
+    if $provider == "aws" and not ("AWS_ACCESS_KEY_ID" in $env) {
+        aws credentials from cli
+    }
     let creds = (main get creds $provider)
 
     main create control-plane
 
     let zone = if $provider == "google" {
         setup google $billing_account
-        reserve gpus $env.PROJECT_ID (if $zone == "" { $GOOGLE_ZONES } else { [$zone] }) $nodes
+        reserve gpus $env.PROJECT_ID (if $zone == "" { $GOOGLE_ZONES } else { [$zone] }) $pools.gpu-l4
     } else {
         setup aws $creds
-        if $zone == "" { "us-east-1b" } else { $zone }
+        reserve aws gpus $zone $pools
     }
 
     # Two gateway callers, so Datadog can tell the audience's chat from the load
@@ -96,16 +91,7 @@ def --env "main setup" [
     ) | kubectl apply --filename -
     kubectl --namespace modelplane-system label secret inference-vote-keys inference-vote/keys=true --overwrite
 
-    # The platform file names a default zone; the cluster's region follows the
-    # zone: us-central1-a is in us-central1, us-east-1b in us-east-1.
-    let default_zone = if $provider == "google" { "us-central1-a" } else { "us-east-1b" }
-    let default_region = if $provider == "google" { "us-central1" } else { "us-east-1" }
-    let region = if $provider == "google" { $zone | str replace --regex '-[a-z]$' '' } else { $zone | str replace --regex '[a-z]$' '' }
-    open --raw $"modelplane/($provider)/platform.yaml"
-        | str replace $"- ($default_zone)" $"- ($zone)"
-        | str replace $"region: ($default_region)" $"region: ($region)"
-        | str replace --all --regex '(?m)^(\s+(?:min|max)?[nN]odeCount): \d+' $"${1}: ($nodes)"
-        | kubectl apply --filename -
+    platform $provider $zone $pools | kubectl apply --filename -
     kubectl apply --filename modelplane/inference.yaml
 
     if $datadog {
@@ -183,7 +169,7 @@ def --env "main setup app" [
     # nip.io needs the load balancer's address.
     let address = (main get vote-address)
     let nip = $domain == ""
-    let domain = if $nip { $"($address).nip.io" } else { $domain }
+    let domain = if $nip { $"(ip of $address).nip.io" } else { $domain }
     $"export DOMAIN=($domain)\n" | save --append .env
 
     (
@@ -354,6 +340,122 @@ aws_secret_access_key = ($creds.aws_secret_access_key)
 
 }
 
+# How many nodes each GPU pool needs
+#
+# Modelplane counts capacity in whole nodes, not GPUs: every engine pod that
+# claims a GPU takes a node to itself. Two copies take two nodes, one engine
+# split across two GPUs takes one. The audience may pick either, so each pool
+# has room for the audience's worst case on top of what the optimized config
+# takes. On Google every node has two L4s, so one pool serves both; AWS has no
+# two-L4 instance, so copies get one-L4 nodes and the split engine a four-L4 one.
+def "pool sizes" [provider: string, optimized: string] {
+    let copies = ($optimized | str substring 1..1) == "B"
+    if $provider == "google" {
+        { gpu-l4: (2 + (if $copies { 2 } else { 1 })) }
+    } else {
+        { copies: (2 + (if $copies { 2 } else { 0 })), one-engine: (1 + (if $copies { 0 } else { 1 })) }
+    }
+}
+
+# The platform manifest for a provider, with the zone, its region, and the pool
+# sizes filled in
+def platform [provider: string, zone: string, pools: record] {
+    # The cluster's region follows the zone: us-central1-a is in us-central1,
+    # us-east-1b in us-east-1.
+    let region = if $provider == "google" { $zone | str replace --regex '-[a-z]$' '' } else { $zone | str replace --regex '[a-z]$' '' }
+    let source = if $provider == "google" { "gke" } else { "eks" }
+    open --raw $"modelplane/($provider)/platform.yaml" | from yaml | each { |doc|
+        if $doc.kind != "InferenceCluster" { return $doc }
+        $doc
+            | upsert spec.cluster ($doc.spec.cluster | upsert $source { region: $region })
+            | upsert spec.nodePools ($doc.spec.nodePools | each { |pool|
+                let n = ($pools | get $pool.name)
+                $pool | upsert nodeCount $n | upsert minNodeCount $n | upsert maxNodeCount $n | upsert zones [$zone]
+            })
+    } | each { to yaml } | str join "---\n"
+}
+
+# Loads AWS credentials from the AWS CLI's own login, so setup doesn't prompt
+def --env "aws credentials from cli" [] {
+    let result = (aws configure export-credentials --format process | complete)
+    if $result.exit_code != 0 {
+        return
+    }
+    let c = ($result.stdout | from json)
+    if ($c.SessionToken? | default "") != "" {
+        print $"(ansi yellow_bold)Your AWS login is temporary(ansi reset) \(it has a session token\). Crossplane needs keys that outlive the talk; set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY to an access key instead."
+        exit 1
+    }
+    $env.AWS_ACCESS_KEY_ID = $c.AccessKeyId
+    $env.AWS_SECRET_ACCESS_KEY = $c.SecretAccessKey
+    if not ("AWS_ACCOUNT_ID" in $env) {
+        $env.AWS_ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text | str trim)
+    }
+}
+
+# Regions setup tries on AWS, in order. Every zone in them that offers both
+# instance types is a candidate.
+const AWS_REGIONS = [us-east-1 us-east-2 us-west-2]
+
+# The AWS counterpart of `reserve gpus`: holds both pools' nodes in one zone
+#
+# Both pools must be in the same zone, so a zone counts only if it grants every
+# reservation; one that grants some gets those cancelled before the next is
+# tried. EC2 instances use an open capacity reservation that matches them on
+# their own, the EKS nodes included. Unlike Google's, these reservations don't
+# belong to a project that destroy deletes, so destroy cancels them.
+def "reserve aws gpus" [zone: string, pools: record] {
+    let types = { copies: "g6.2xlarge", one-engine: "g6.12xlarge" }
+    let wanted = ($pools | transpose pool count | where count > 0 | each { |p| { type: ($types | get $p.pool), count: $p.count } })
+    let candidates = if $zone != "" {
+        [{ region: ($zone | str replace --regex '[a-z]$' ''), zone: $zone }]
+    } else {
+        $AWS_REGIONS | each { |region|
+            let offered = ($wanted | each { |w|
+                (
+                    aws ec2 describe-instance-type-offerings --region $region --location-type availability-zone
+                        --filters $"Name=instance-type,Values=($w.type)" --query "InstanceTypeOfferings[].Location" --output json
+                ) | from json
+            })
+            $offered | reduce { |it, acc| $acc | where { |z| $z in $it } } | sort | each { |z| { region: $region, zone: $z } }
+        } | flatten
+    }
+    for c in $candidates {
+        mut ids = []
+        mut failure = ""
+        for w in $wanted {
+            let result = (
+                aws ec2 create-capacity-reservation --region $c.region --availability-zone $c.zone
+                    --instance-type $w.type --instance-platform "Linux/UNIX" --instance-count $w.count
+                    --instance-match-criteria open --end-date-type unlimited
+                    --query CapacityReservation.CapacityReservationId --output text
+            ) | complete
+            if $result.exit_code != 0 {
+                $failure = $result.stderr
+                break
+            }
+            $ids = ($ids | append ($result.stdout | str trim))
+        }
+        if $failure == "" {
+            print $"Reserved ($wanted | each { |w| $'($w.count) x ($w.type)' } | str join ' and ') in (ansi yellow_bold)($c.zone)(ansi reset)."
+            $"export GPU_ZONE=($c.zone)\nexport AWS_RESERVATION_REGION=($c.region)\nexport AWS_RESERVATIONS=($ids | str join ',')\n" | save --append .env
+            return $c.zone
+        }
+        for id in $ids {
+            aws ec2 cancel-capacity-reservation --region $c.region --capacity-reservation-id $id | ignore
+        }
+        if ($failure | str contains "LimitExceeded") or ($failure | str contains "quota") {
+            print $"(ansi red_bold)Not enough quota in ($c.region)(ansi reset):\n($failure)"
+            print "Request a higher \"Running On-Demand G and VT instances\" vCPU quota (80 for this setup), or pass --zone with another region."
+            exit 1
+        }
+        let why = if ($failure | str contains "InsufficientInstanceCapacity") { "no GPUs free" } else { $failure | lines | first }
+        print $"($c.zone): ($why)"
+    }
+    print $"(ansi red_bold)None of ($candidates | get zone | str join ', ') has the GPU nodes free right now.(ansi reset) Try again in a few minutes."
+    exit 1
+}
+
 # Holds the GPU nodes before anything asks for them, and returns the zone
 #
 # GPUs run out one zone at a time, and a GKE node pool that can't get them
@@ -424,6 +526,21 @@ def "main get workload-kubeconfig" [
     $config | to yaml | save --force $WORKLOAD_KUBECONFIG
     chmod 600 $WORKLOAD_KUBECONFIG
     print $"Wrote (ansi yellow_bold)($WORKLOAD_KUBECONFIG)(ansi reset)"
+}
+
+# The IP behind an address: itself if it is one, otherwise what its name
+# resolves to. AWS load balancers have names, and a new one takes a few minutes
+# to resolve.
+def "ip of" [address: string] {
+    if ($address =~ '^[0-9.]+$') {
+        return $address
+    }
+    mut ip = ""
+    while $ip == "" {
+        $ip = (^dig +short $address | lines | where { |l| $l =~ '^[0-9.]+$' } | get 0? | default "")
+        if $ip == "" { sleep 10sec }
+    }
+    $ip
 }
 
 # Waits for the voting app's load balancer and returns its IP or hostname
@@ -557,6 +674,12 @@ def --env "main destroy" [
 
     if $provider == "google" and ("PROJECT_ID" in $env) {
         gcloud projects delete $env.PROJECT_ID --quiet
+    }
+    # AWS reservations bill until cancelled, cluster or not.
+    if $provider == "aws" and ("AWS_RESERVATIONS" in $env) {
+        for id in ($env.AWS_RESERVATIONS | split row ",") {
+            aws ec2 cancel-capacity-reservation --region $env.AWS_RESERVATION_REGION --capacity-reservation-id $id | ignore
+        }
     }
 
     kind delete cluster --name $KIND_CLUSTER

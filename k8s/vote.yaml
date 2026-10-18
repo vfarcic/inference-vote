@@ -125,6 +125,11 @@ kind: Service
 metadata:
   name: inference-vote
   namespace: inference-vote
+  annotations:
+    # On AWS, a Network Load Balancer: its IP per zone never changes, so
+    # <IP>.nip.io keeps working. A Classic one's IPs change under it. Other
+    # clouds ignore this.
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
 spec:
   type: LoadBalancer
   selector:

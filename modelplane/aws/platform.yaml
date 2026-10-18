@@ -1,12 +1,44 @@
-# AWS: g6.12xlarge nodes, four NVIDIA L4s each.
+# AWS: two pools, because AWS has no instance with exactly two L4s, and
+# Modelplane counts capacity in whole nodes, not GPUs: every engine pod takes a
+# node to itself.
 #
-# NOT VERIFIED, AND WASTEFUL AS IT STANDS. Modelplane counts capacity in whole
-# nodes, not GPUs, so each engine pod takes a whole g6.12xlarge, and setup sizes
-# the pool to 3 or 4 of them. AWS has no two-L4 instance, so this needs a
-# rethink before it is a usable fallback.
+# - copies: g6.2xlarge, one L4 each, for the answers that run one copy per GPU.
+# - one-engine: g6.12xlarge, four L4s, for the answer that splits one engine
+#   across two GPUs, which needs both on the same node. Two of its four GPUs
+#   stay idle.
 #
-# A g6.12xlarge is 48 vCPUs. New accounts usually have a lower G-instance vCPU
-# quota than that, so request an increase well before the talk.
+# Modelplane places an engine on the first pool that fits all of it, so copies
+# land on the small nodes and only a two-GPU engine, which can't fit there,
+# goes to the big one. The order of the pools below matters.
+#
+# Setup replaces the node counts and the zone. New accounts usually have a
+# G-instance vCPU quota below the 80 this needs (4 x 8 + 48), so request an
+# increase well before the talk.
+apiVersion: modelplane.ai/v1alpha1
+kind: InferenceClass
+metadata:
+  name: eks-l4-1x-g6
+spec:
+  description: "EKS g6.2xlarge, 1x NVIDIA L4"
+  provisioning:
+    provider: EKS
+    eks:
+      instanceType: g6.2xlarge
+      diskSizeGb: 200
+      accelerator:
+        type: nvidia-l4
+        count: 1
+  devices:
+  - name: gpu
+    claim: DRA
+    driver: gpu.nvidia.com
+    deviceClassName: gpu.nvidia.com
+    count: 1
+    attributes:
+      architecture: { string: Ada Lovelace }
+    capacity:
+      memory: { value: "23034Mi" }
+---
 apiVersion: modelplane.ai/v1alpha1
 kind: InferenceClass
 metadata:
@@ -44,7 +76,14 @@ spec:
     eks:
       region: us-east-1
   nodePools:
-  - name: gpu-l4
+  - name: copies
+    className: eks-l4-1x-g6
+    nodeCount: 4
+    minNodeCount: 4
+    maxNodeCount: 4
+    zones:
+    - us-east-1b
+  - name: one-engine
     className: eks-l4-4x-g6
     nodeCount: 1
     minNodeCount: 1
