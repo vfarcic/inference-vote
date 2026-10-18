@@ -91,8 +91,15 @@ outside Datadog's US1 site also need `DD_SITE`, such as `datadoghq.eu`.
 `measure` deploys each of the eight configs in turn and writes two times for
 each to `timings.md`: when its engines were ready, and when the gateway first
 answered for it. The second is what the audience waits for, and the slowest of
-the eight is how long they may wait. Rehearsal
-is also where `--optimized` gets decided. The default, `BBA`, is a guess.
+the eight is how long they may wait.
+
+`--optimized` defaults to `BAA`, FP8 in one engine split across both GPUs, the
+best of the eight in a rehearsal on AWS under the 100-agent load: about 430
+tokens a second against about 210 for `BBA`, the same with two copies. Pooling
+the GPUs' memory gave one engine room for 48 full-length conversations, against
+34 for two copies together, and one shared prefix cache instead of two, which
+outweighed the GPUs talking over PCIe. Full precision as two copies was the
+worst, at about 95.
 
 ### Right before going on stage
 

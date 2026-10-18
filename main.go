@@ -69,7 +69,7 @@ func serve(ctx context.Context, args []string) error {
 	addr := fs.String("addr", ":8080", "address for plain HTTP when no domain is set")
 	domain := fs.String("domain", env("DOMAIN", ""), "serve HTTPS for this name with a Let's Encrypt certificate")
 	staging := fs.Bool("acme-staging", env("ACME_STAGING", "") == "true", "use Let's Encrypt staging, for rehearsals (5 real certificates per name per week)")
-	optimized := fs.String("optimized", env("OPTIMIZED", "BBA"), "the optimized config the audience is compared against")
+	optimized := fs.String("optimized", env("OPTIMIZED", "BAA"), "the optimized config the audience is compared against")
 	agents, _ := strconv.Atoi(env("LOAD_AGENTS", "100"))
 	loadAgents := fs.Int("load-agents", agents, "concurrent agents per deployment during the race; 0 disables")
 	loadDuration := fs.Duration("load-duration", 12*time.Minute, "how long the load test runs on each deployment")
@@ -184,7 +184,7 @@ func runBridge(ctx context.Context, args []string) error {
 func render(args []string) error {
 	fs := flag.NewFlagSet("render", flag.ExitOnError)
 	name := fs.String("name", "optimized", "ModelDeployment name")
-	config := fs.String("config", env("OPTIMIZED", "BBA"), "three letters, one answer per question")
+	config := fs.String("config", env("OPTIMIZED", "BAA"), "three letters, one answer per question")
 	cache := fs.Bool("cache", env("MODEL_CACHE", "") == "true", "load weights from a ModelCache")
 	fs.Parse(args)
 	c, err := choice.Parse(*config)

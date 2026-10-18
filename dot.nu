@@ -36,7 +36,7 @@ def main [] {}
 def --env "main setup" [
     provider: string             # Cloud provider. `google` or `aws`
     --domain = ""                # Public name for the voting app. Empty, the default, uses <IP>.nip.io (Google only). Set it only if nip.io is down
-    --optimized = "BBA"          # The config the audience is compared against, one letter per question
+    --optimized = "BAA"          # The config the audience is compared against, one letter per question
     --cache                      # Serve weights from a ModelCache instead of downloading them on every start
     --acme-staging               # Use Let's Encrypt staging. Only needed with --domain, which has a limit of 5 certificates a week; every nip.io name is new
     --billing-account = ""       # Google billing account to link. Auto-detected when empty
@@ -138,7 +138,7 @@ Modelplane is creating the inference cluster. (ansi yellow_bold)This takes 15 to
 # > ./dot.nu setup app --domain vote.devopstoolkit.ai
 def --env "main setup app" [
     --domain = ""                # Public name for the voting app. Empty uses <IP>.nip.io (Google only)
-    --optimized = "BBA"          # The config the audience is compared against, one letter per question
+    --optimized = "BAA"          # The config the audience is compared against, one letter per question
     --cache                      # Must match setup's --cache
     --acme-staging               # Use Let's Encrypt staging
     --image = $IMAGE             # The inference-vote image
