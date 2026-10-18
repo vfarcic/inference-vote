@@ -708,7 +708,32 @@ def --env "main destroy" [
     kubectl --namespace ml-team delete modelcaches --all --ignore-not-found --wait=true
     kubectl delete inferencegateway public --ignore-not-found --wait=true
     kubectl delete telemetrydestination datadog --ignore-not-found --wait=true
+    # The voting app's load balancer belongs to its Service, so only the
+    # inference cluster can delete it, and only while it still exists.
+    if ($WORKLOAD_KUBECONFIG | path exists) {
+        let r = (kubectl --kubeconfig $WORKLOAD_KUBECONFIG delete namespace inference-vote --ignore-not-found --wait=true --timeout=10m | complete)
+        if $r.exit_code != 0 {
+            print $"(ansi yellow_bold)Couldn't delete the voting app(ansi reset), so its load balancer may outlive the cluster: ($r.stderr | str trim)"
+        }
+    }
     kubectl delete inferencecluster vote --ignore-not-found --timeout=60m
+
+    # Deleting the InferenceCluster returns once Crossplane has accepted it;
+    # the cloud resources go afterwards. Deleting kind before they do would
+    # leave them running, billed, with nothing to delete them.
+    print "Waiting for Crossplane to delete the cloud resources. This takes 10 to 20 minutes."
+    mut left = (kubectl get managed --output name | complete | get stdout | lines | length)
+    mut waited = 0
+    while $left > 0 and $waited < 3600 {
+        sleep 30sec
+        $waited += 30
+        $left = (kubectl get managed --output name | complete | get stdout | lines | length)
+    }
+    if $left > 0 {
+        print $"(ansi red_bold)($left) cloud resources are still there after an hour(ansi reset). kind is left running so Crossplane can finish; run `./dot.nu destroy ($provider)` again later."
+        kubectl get managed
+        exit 1
+    }
 
     if $provider == "google" and ("PROJECT_ID" in $env) {
         gcloud projects delete $env.PROJECT_ID --quiet
