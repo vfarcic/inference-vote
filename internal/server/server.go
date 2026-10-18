@@ -388,13 +388,17 @@ func (p pod) step() string {
 
 // ProbeGateway confirms the audience's deployment actually answers. Ready
 // engines are not enough: Modelplane routes the gateway to them some minutes
-// later, and until then every request is a 404. So once the engines are ready,
-// this asks the gateway for a single token every few seconds, and the first
-// answer marks the deployment as serving.
+// later, and until then every request is a 404. Nor is the first answer: the
+// gateway is still taking in the new route, and requests that fail while it
+// does can get either deployment shut out of it for a while. So once the
+// engines are ready, this asks the gateway for a single token from both
+// deployments every few seconds, and marks the audience's as serving once
+// both have answered every time for settleTime.
 func (s *Server) ProbeGateway(ctx context.Context) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	t := time.NewTicker(3 * time.Second)
 	defer t.Stop()
+	var since time.Time // when the current run of answers began
 	for {
 		select {
 		case <-ctx.Done():
@@ -403,14 +407,27 @@ func (s *Server) ProbeGateway(ctx context.Context) {
 		}
 		st := s.poll.Snapshot()
 		if !st.EnginesReady || st.Serving {
+			since = time.Time{}
 			continue
 		}
-		if s.answers(ctx, client, "audience") {
-			log.Printf("gateway answers for %s/audience, %s after the votes", choice.Namespace, time.Since(st.Started).Round(time.Second))
+		if !s.answers(ctx, client, "audience") || !s.answers(ctx, client, "optimized") {
+			since = time.Time{}
+			continue
+		}
+		if since.IsZero() {
+			since = time.Now()
+			log.Printf("gateway answers for %s/audience, %s after the votes; waiting for it to settle", choice.Namespace, time.Since(st.Started).Round(time.Second))
+		}
+		if time.Since(since) >= settleTime {
+			log.Printf("gateway settled, %s after the votes", time.Since(st.Started).Round(time.Second))
 			s.poll.MarkServing()
 		}
 	}
 }
+
+// settleTime is how long both deployments must keep answering before the
+// audience's counts as serving.
+const settleTime = 20 * time.Second
 
 func (s *Server) answers(ctx context.Context, client *http.Client, target string) bool {
 	body, _ := json.Marshal(map[string]any{

@@ -60,9 +60,9 @@ type Config struct {
 type Score struct {
 	mu       sync.Mutex
 	total    int
-	answered int
+	answered int // problems the deployment answered, right or wrong
 	correct  int
-	errors   int
+	errors   int // failed requests, each retried
 	done     bool
 }
 
@@ -87,6 +87,9 @@ func (v ScoreView) String() string {
 	return fmt.Sprintf("%d/%d correct (%.1f%%), %d errors", v.Correct, v.Answered, 100*float64(v.Correct)/float64(v.Answered), v.Errors)
 }
 
+// retryDelay is how long a worker waits before asking a failed problem again.
+var retryDelay = 5 * time.Second
+
 // Start runs the problems against a deployment in the background.
 func Start(ctx context.Context, cfg Config, target string) *Score {
 	n := min(cfg.Problems, len(Problems))
@@ -101,19 +104,33 @@ func Start(ctx context.Context, cfg Config, target string) *Score {
 			go func() {
 				defer wg.Done()
 				for p := range work {
-					answer, err := ask(ctx, client, cfg, target, p.Question)
-					if ctx.Err() != nil {
-						return
+					// A failed request is not an answer: it is retried until
+					// the deployment answers, so an outage pauses the test
+					// instead of burning through the problems.
+					for {
+						answer, err := ask(ctx, client, cfg, target, p.Question)
+						if ctx.Err() != nil {
+							return
+						}
+						s.mu.Lock()
+						if err != nil {
+							s.errors++
+						} else {
+							s.answered++
+							if Correct(answer, p.Answer) {
+								s.correct++
+							}
+						}
+						s.mu.Unlock()
+						if err == nil {
+							break
+						}
+						select {
+						case <-time.After(retryDelay):
+						case <-ctx.Done():
+							return
+						}
 					}
-					s.mu.Lock()
-					s.answered++
-					switch {
-					case err != nil:
-						s.errors++
-					case Correct(answer, p.Answer):
-						s.correct++
-					}
-					s.mu.Unlock()
 				}
 			}()
 		}
