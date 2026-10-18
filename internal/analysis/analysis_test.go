@@ -51,7 +51,7 @@ func TestPrompt(t *testing.T) {
 		"Question 3 (speculative decoding)",
 		"Tokens per second: 260 vs 80 (optimized wins)",
 		"Answer time, median: 46.0s vs 51.0s (tie)",
-		"17.0 vs 2.8",
+		"all engines together: 34.1 vs 5.6 (per engine: 17.0 vs 2.8)",
 		"preemptions): 0 vs 41",
 		"Guessed tokens accepted: n/a vs 30%",
 	} {

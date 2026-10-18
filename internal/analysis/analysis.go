@@ -108,7 +108,7 @@ const Instructions = `You explain the result of a live inference race to a confe
 
 Write 4 to 6 short sentences of plain prose. No lists, headings, or markdown. Address the audience as "you".
 - Start with the overall outcome: who served more and answered faster, with the numbers.
-- Then explain why, using only the questions where the two configurations differ. For each, name the engine evidence that shows its effect.
+- Then explain why, using only the questions marked DIFFERENT. For each, name the engine evidence that shows its effect. Don't mention questions with the same answer at all: they can't explain a difference.
 - Use only the numbers given. Never invent one.
 - A measure marked as a tie is a tie, even if the numbers differ a little. Don't call a winner on it.
 - If the evidence for a cause is missing or small, say the effect was too small to see rather than guessing.
@@ -145,7 +145,8 @@ func Prompt(r Race, rows []Row) string {
 		return b.String()
 	}
 	fmt.Fprintf(&b, "- Engines: %d vs %d\n", oe.Engines, ae.Engines)
-	fmt.Fprintf(&b, "- Full-length conversations the KV cache can hold, per engine: %.1f vs %.1f\n", oe.MaxConcurrency, ae.MaxConcurrency)
+	fmt.Fprintf(&b, "- Full-length conversations the KV cache can hold, all engines together: %.1f vs %.1f (per engine: %.1f vs %.1f)\n",
+		oe.MaxConcurrency*float64(oe.Engines), ae.MaxConcurrency*float64(ae.Engines), oe.MaxConcurrency, ae.MaxConcurrency)
 	fmt.Fprintf(&b, "- KV cache in use, average: %.0f%% vs %.0f%%; peak: %.0f%% vs %.0f%%\n", 100*oe.KVUsageAvg, 100*ae.KVUsageAvg, 100*oe.KVUsageMax, 100*ae.KVUsageMax)
 	fmt.Fprintf(&b, "- Requests waiting in the queue, average: %.0f vs %.0f; peak: %.0f vs %.0f\n", oe.WaitingAvg, ae.WaitingAvg, oe.WaitingMax, ae.WaitingMax)
 	fmt.Fprintf(&b, "- Conversations evicted for lack of KV cache (preemptions): %.0f vs %.0f\n", oe.Preemptions, ae.Preemptions)
