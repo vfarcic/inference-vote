@@ -142,6 +142,7 @@ type raceView struct {
 	Audience  raceSide   `json:"audience"`
 	Manifests []diff.Row `json:"manifests"` // optimized on the left, the audience's on the right
 	Results   *results   `json:"results,omitempty"`
+	Swapped   bool       `json:"swapped"` // the room picked the optimized config; the audience side is its opposite
 }
 
 // raceState is what the presenter's race screen polls. It is empty outside the
@@ -165,6 +166,7 @@ func (s *Server) raceView() (raceView, bool) {
 	dep, _ := choice.Parse(st.Deployed)
 	v := raceView{
 		Started:   st.RaceStarted,
+		Swapped:   st.Swapped,
 		Optimized: raceSide{Config: st.Optimized, Summary: opt.Describe(), Serving: true},
 		Audience:  raceSide{Config: st.Deployed, Summary: dep.Describe(), Serving: st.Serving, Pods: st.Progress.Pods},
 		Manifests: diff.Lines(

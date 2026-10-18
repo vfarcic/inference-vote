@@ -60,7 +60,7 @@ func (s *Server) showResults(w http.ResponseWriter, r *http.Request) {
 // optimized model explain them in the background. A newer request cancels an
 // older one that is still writing.
 func (s *Server) analyze(v raceView, final bool) {
-	a := analysis.Race{Final: final, Optimized: side(v.Optimized), Audience: side(v.Audience)}
+	a := analysis.Race{Final: final, Swapped: v.Swapped, Optimized: side(v.Optimized), Audience: side(v.Audience)}
 	if v.Optimized.Load != nil {
 		a.Elapsed = v.Optimized.Load.Seconds
 	}

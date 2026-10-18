@@ -23,6 +23,19 @@
   }
   const since = (t) => (t ? (Date.now() - new Date(t)) / 1000 : 0);
 
+  // What to call each side. When the room picks exactly the optimized config,
+  // that side is their pick, and the other is its opposite.
+  const names = (s) => (s && s.swapped
+    ? { optimized: "Your pick", audience: "Unoptimized" }
+    : { optimized: "Optimized", audience: "Your pick" });
+
+  function deployingHTML(s) {
+    const head = s.swapped
+      ? `<h1>Deploying the opposite of your pick</h1><p class="note">You picked exactly the optimized configuration. It's already running, so the opposite of every answer races it.</p>`
+      : `<h1>Deploying your pick</h1>`;
+    return `${head}${summaryHTML(s.summary)}${progressHTML(s)}`;
+  }
+
   function tallyHTML(s, q) {
     const [a, b] = s.tally[q];
     const total = a + b || 1;
@@ -92,12 +105,13 @@
     }
 
     function drawChat(s) {
+      const n = names(s);
       root.innerHTML = `<h1>Chat with them</h1>
         <div class="tabs">
-          <button data-target="audience">Your pick</button>
-          <button data-target="optimized">Optimized</button>
+          <button data-target="audience">${n.audience}</button>
+          <button data-target="optimized">${n.optimized}</button>
         </div>
-        <p class="muted not-serving">Your pick isn't serving, so only the optimized one can answer.</p>
+        <p class="muted not-serving">${s.swapped ? "The unoptimized one isn't serving, so only your pick can answer." : "Your pick isn't serving, so only the optimized one can answer."}</p>
         <div class="log"></div>
         <form class="ask"><input name="q" placeholder="Ask something" autocomplete="off" maxlength="500"><button>Send</button></form>`;
       root.dataset.view = "race";
@@ -132,7 +146,7 @@
             <button class="choice" data-vote="B">${esc(q.b)}</button>
             <p class="muted">Go with your gut.</p>`;
       } else if (s.phase === "deploying") {
-        html = `<h1>Deploying your pick</h1>${summaryHTML(s.summary)}${progressHTML(s)}`;
+        html = deployingHTML(s);
       }
       root.innerHTML = html;
       root.querySelectorAll("[data-vote]").forEach((b) => (b.onclick = () => vote(s.question, b.dataset.vote)));
@@ -216,9 +230,9 @@
         </table>
         ${l ? `<p class="muted">${clock(l.seconds)}${l.done ? ", done" : ""}</p>` : ""}`;
       }
-      const swapped = isAudience && s.swapped
-        ? `<p class="note">The room picked exactly the optimized configuration, so this is its opposite.</p>`
-        : "";
+      const swapped = !s.swapped ? ""
+        : isAudience ? `<p class="note">Every answer flipped, to show what the choices are worth.</p>`
+        : `<p class="note">The room picked exactly the optimized configuration.</p>`;
       // Four parts, one per row of the shared grid, so both columns line up
       // whichever has the longer answers.
       return `<section class="side"><h2>${esc(title)} <span class="config">${esc(side.config)}</span></h2><div>${swapped}${summaryHTML(side.summary)}</div><div>${body}</div></section>`;
@@ -226,17 +240,17 @@
 
     // The code decides each winner; the optimized model explains why, from
     // those numbers and what the engines reported.
-    function resultsHTML(r) {
+    function resultsHTML(r, n) {
       if (!r) return "";
       const mark = (row, who) => (row.winner === who ? ` class="win"` : "");
       const table = r.rows && r.rows.length
-        ? `<table class="results"><thead><tr><th></th><th>Optimized</th><th>Your pick</th></tr></thead><tbody>${r.rows.map((row) =>
+        ? `<table class="results"><thead><tr><th></th><th>${n.optimized}</th><th>${n.audience}</th></tr></thead><tbody>${r.rows.map((row) =>
             `<tr><th>${esc(row.measure)}</th><td${mark(row, "optimized")}>${esc(row.optimized)}</td><td${mark(row, "audience")}>${esc(row.audience)}</td></tr>`).join("")}</tbody></table>`
         : "";
       const pct = (v) => (v === null || v === undefined ? "-" : `${Math.round(v * 100)}%`);
       const o = (r.evidence || {}).optimized, a = (r.evidence || {}).audience;
       const evidence = o && a
-        ? `<table class="results evidence"><thead><tr><th>What the engines reported</th><th>Optimized</th><th>Your pick</th></tr></thead><tbody>
+        ? `<table class="results evidence"><thead><tr><th>What the engines reported</th><th>${n.optimized}</th><th>${n.audience}</th></tr></thead><tbody>
             <tr><th>Room for full-length conversations, per engine</th><td>${o.maxConcurrency.toFixed(1)}</td><td>${a.maxConcurrency.toFixed(1)}</td></tr>
             <tr><th>KV cache in use, average</th><td>${pct(o.kvUsageAvg)}</td><td>${pct(a.kvUsageAvg)}</td></tr>
             <tr><th>Requests waiting, average</th><td>${Math.round(o.waitingAvg)}</td><td>${Math.round(a.waitingAvg)}</td></tr>
@@ -258,14 +272,14 @@
 
     // Same line, same height: lines only one manifest has leave a gap on the
     // other side, and what differs is marked.
-    function manifestsHTML(rows) {
+    function manifestsHTML(rows, n) {
       // A long line wraps under its own start, not back at the left edge, so
       // the indentation still reads as YAML.
       const cell = (line) => {
         const indent = line.length - line.trimStart().length;
         return `<td><pre style="padding-left:${indent}ch">${esc(line.trimStart())}</pre></td>`;
       };
-      return `<table class="manifests"><thead><tr><th>Optimized</th><th>Your pick</th></tr></thead><tbody>${rows.map((r) =>
+      return `<table class="manifests"><thead><tr><th>${n.optimized}</th><th>${n.audience}</th></tr></thead><tbody>${rows.map((r) =>
         `<tr class="${r.kind}">${cell(r.left)}${cell(r.right)}</tr>`).join("")}</tbody></table>`;
     }
 
@@ -288,13 +302,14 @@
         const votes = s.tally[s.question][0] + s.tally[s.question][1];
         html = `<p class="step">Question ${s.question + 1} of ${s.questions.length} - ${votes} votes</p><h1>${esc(s.questions[s.question].text)}</h1>${tallyHTML(s, s.question)}`;
       } else if (s.phase === "deploying") {
-        html = `<h1>Deploying your pick</h1>${summaryHTML(s.summary)}${progressHTML(s)}`;
+        html = deployingHTML(s);
       } else if (s.phase === "race") {
+        const n = names(s);
         html = race
           ? `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
-            <div class="race">${sideHTML("Optimized", race.optimized, s, false)}${sideHTML("Your pick", race.audience, s, true)}</div>
-            ${resultsHTML(race.results)}
-            ${manifestsHTML(race.manifests)}`
+            <div class="race">${sideHTML(n.optimized, race.optimized, s, false)}${sideHTML(n.audience, race.audience, s, true)}</div>
+            ${resultsHTML(race.results, n)}
+            ${manifestsHTML(race.manifests, n)}`
           : `<h1>The race</h1><p class="muted">Starting...</p>`;
       }
       // Keep the manifests where the presenter scrolled them.

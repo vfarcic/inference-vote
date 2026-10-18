@@ -107,9 +107,14 @@ type view struct {
 func (s *Server) viewFor(id string) view {
 	v := view{State: s.poll.Snapshot()}
 	// The optimized config is revealed on the race screen, not before: the
-	// room should vote on the questions, not against an answer key.
+	// room should vote on the questions, not against an answer key. That the
+	// room matched it shows once the votes are in, so the deployment screen
+	// doesn't call the opposite of their answers their pick.
 	if v.Phase != poll.Race {
-		v.Optimized, v.Swapped = "", false
+		v.Optimized = ""
+	}
+	if v.Phase == poll.Lobby || v.Phase == poll.Voting {
+		v.Swapped = false
 	}
 	for q := range v.Mine {
 		v.Mine[q] = s.poll.VoteOf(id, q)

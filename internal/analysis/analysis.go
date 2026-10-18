@@ -31,8 +31,18 @@ type Side struct {
 type Race struct {
 	Elapsed   float64
 	Final     bool
+	Swapped   bool // the room picked the optimized config, so Audience is its opposite
 	Optimized Side
 	Audience  Side
+}
+
+// names are what the screen calls the two sides: when the room picked the
+// optimized config, that is their pick, and the other is its opposite.
+func (r Race) names() (optimized, audience string) {
+	if r.Swapped {
+		return "your pick", "unoptimized"
+	}
+	return "optimized", "your pick"
 }
 
 // Row is one measure, with the winner: "optimized", "audience", or "tie".
@@ -125,6 +135,10 @@ func Prompt(r Race, rows []Row) string {
 		state = "finished"
 	}
 	fmt.Fprintf(&b, "The load test has run for %s (%s).\n\n", clock(r.Elapsed), state)
+	on, an := r.names()
+	if r.Swapped {
+		b.WriteString(`This time the room voted exactly the optimized configuration, so it raced the opposite of every answer instead. Call the two sides "your pick" and "the unoptimized configuration", tell the room they matched the expert, and explain what each flipped answer cost.` + "\n\n")
+	}
 	oc, _ := choice.Parse(r.Optimized.Config)
 	ac, _ := choice.Parse(r.Audience.Config)
 	for i, q := range choice.Questions {
@@ -132,13 +146,13 @@ func Prompt(r Race, rows []Row) string {
 		if oc[i] != ac[i] {
 			same = "DIFFERENT"
 		}
-		fmt.Fprintf(&b, "Question %d (%s): optimized %s, your pick %s (%s).\n", i+1, q.Topic, answer(q, oc[i]), answer(q, ac[i]), same)
+		fmt.Fprintf(&b, "Question %d (%s): %s %s, %s %s (%s).\n", i+1, q.Topic, on, answer(q, oc[i]), an, answer(q, ac[i]), same)
 	}
-	b.WriteString("\nMeasured, optimized vs your pick:\n")
+	fmt.Fprintf(&b, "\nMeasured, %s vs %s:\n", on, an)
 	for _, row := range rows {
-		fmt.Fprintf(&b, "- %s: %s vs %s (%s)\n", row.Measure, row.Optimized, row.Audience, winner(row.Winner))
+		fmt.Fprintf(&b, "- %s: %s vs %s (%s)\n", row.Measure, row.Optimized, row.Audience, r.winner(row.Winner))
 	}
-	b.WriteString("\nEngine evidence over the race, optimized vs your pick:\n")
+	fmt.Fprintf(&b, "\nEngine evidence over the race, %s vs %s:\n", on, an)
 	oe, ae := r.Optimized.Evidence, r.Audience.Evidence
 	if oe == nil || ae == nil {
 		b.WriteString("- not available\n")
@@ -158,7 +172,11 @@ func Prompt(r Race, rows []Row) string {
 // Fallback is the results in words, from the table alone, for when the model
 // doesn't answer in time.
 func Fallback(r Race, rows []Row) string {
+	on, an := r.names()
 	if len(rows) == 0 {
+		if r.Swapped {
+			return "You picked exactly the optimized configuration, and its opposite never served, so there is nothing to compare: you won by default."
+		}
 		return "Your pick never served, so there is nothing to compare: the optimized configuration won by default."
 	}
 	var wins, losses, ties []string
@@ -176,10 +194,10 @@ func Fallback(r Race, rows []Row) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "After %s: ", clock(r.Elapsed))
 	if len(wins) > 0 {
-		fmt.Fprintf(&b, "the optimized configuration won on %s. ", strings.Join(wins, ", "))
+		fmt.Fprintf(&b, "%s won on %s. ", sideName(on), strings.Join(wins, ", "))
 	}
 	if len(losses) > 0 {
-		fmt.Fprintf(&b, "Your pick won on %s. ", strings.Join(losses, ", "))
+		fmt.Fprintf(&b, "%s won on %s. ", upper(sideName(an)), strings.Join(losses, ", "))
 	}
 	if len(ties) > 0 {
 		fmt.Fprintf(&b, "Too close to call: %s.", strings.Join(ties, ", "))
@@ -194,15 +212,27 @@ func answer(q choice.Question, o choice.Option) string {
 	return fmt.Sprintf("B, %q", q.B)
 }
 
-func winner(w string) string {
+func (r Race) winner(w string) string {
+	on, an := r.names()
 	switch w {
 	case "optimized":
-		return "optimized wins"
+		return on + " wins"
 	case "audience":
-		return "your pick wins"
+		return an + " wins"
 	}
 	return "tie"
 }
+
+// sideName is a side's name in a sentence: "the optimized configuration",
+// "your pick".
+func sideName(n string) string {
+	if n == "your pick" {
+		return n
+	}
+	return "the " + n + " configuration"
+}
+
+func upper(s string) string { return strings.ToUpper(s[:1]) + s[1:] }
 
 func pct(v *float64) string {
 	if v == nil {

@@ -64,6 +64,26 @@ func TestPrompt(t *testing.T) {
 	}
 }
 
+func TestSwapped(t *testing.T) {
+	r := race()
+	r.Swapped = true
+	p := Prompt(r, Rows(r))
+	for _, want := range []string{
+		"the room voted exactly the optimized configuration",
+		"Question 1 (quantization): your pick B",
+		"unoptimized A",
+		"Measured, your pick vs unoptimized:",
+		"Tokens per second: 260 vs 80 (your pick wins)",
+	} {
+		if !strings.Contains(p, want) {
+			t.Errorf("prompt lacks %q:\n%s", want, p)
+		}
+	}
+	if f := Fallback(r, Rows(r)); !strings.HasPrefix(f, "After 4:12: your pick won on tokens per second") {
+		t.Errorf("fallback: %q", f)
+	}
+}
+
 func TestFallback(t *testing.T) {
 	r := race()
 	f := Fallback(r, Rows(r))
