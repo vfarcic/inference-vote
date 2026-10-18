@@ -42,7 +42,7 @@ vLLM. `inference-vote render --config BBA` prints any of them.
   deployed instead, so there is still something to compare. Ties go against the
   optimized answer for the same reason.
 - **The race** is the last screen. When the presenter starts it, a load test
-  (16 coding agents for 12 minutes) and an accuracy test (200 GSM8K math
+  (100 coding agents for 12 minutes) and an accuracy test (200 GSM8K math
   problems) start against every deployment that serves; the audience's joins
   whenever it comes up. The screen shows live numbers for each, audience chat
   and load test counted apart, and the two manifests side by side, line by line.
@@ -145,22 +145,44 @@ screen, and the load test.
 - A draft model doesn't fit next to full-precision Qwen3-8B on one L4 (0.25 GiB
   left for the KV cache), which is why question 3 uses n-gram speculation.
 
+## What a rehearsal on AWS showed
+
+Verified on EKS on 2026-10-18: setup (about 33 minutes, GPUs reserved in the
+first zone tried), nip.io with a certificate, both node pools (the two-GPU
+engine on the `g6.12xlarge`, copies on the `g6.2xlarge` nodes), tensor
+parallelism, n-gram speculation under load, the accuracy test, chat, and 100
+load-test agents. From the vote to serving took 3 to 6 minutes: Modelplane
+routed the gateway within about half a minute of ready engines.
+
+- **The gateway retries an attempt that sends nothing for a while**, 60 seconds
+  unless the ModelService says otherwise, and after five failures in a row it
+  stops sending to that deployment for 30 seconds or more. Under 100 agents
+  that turned slow answers into bursts of instant 503s. So every caller in the
+  app streams, both ModelServices set `timeouts.idle` to 180 seconds, the
+  load test's own limit, and the app counts the audience's deployment as
+  serving only after both deployments have answered for 20 seconds in a row.
+- **On AWS, the gateways sit behind Classic Load Balancers** that cut a
+  connection quiet for 60 seconds. Setup raises that to 10 minutes, and the app
+  calls the gateway inside the cluster rather than through its load balancer.
+- **An NLB has an IP in every zone but forwards only within its own**, so setup
+  takes the one in the GPU zone for nip.io.
+- Under 100 agents, the optimized config served about 260 tokens a second with
+  no failures. One engine across two GPUs at full precision with n-gram
+  guessing served about 225. Two full-precision copies with n-gram guessing
+  started near 200 and fell to about 80 as the agents' conversations grew,
+  with requests timing out after three minutes in the queue.
+
 Not verified yet:
 
-- **Tensor parallelism** (question 2, A), including without `/dev/shm`. If NCCL
-  complains, `NCCL_SHM_DISABLE=1` is the fallback.
-- **N-gram speculation** under load, and whether it pays off. It started, but
-  the race that measured it hit the routing gap above.
-- **The accuracy test and crash reasons** against real engines. They are
-  tested against a stand-in gateway.
-- **100 load-test agents**: whether full precision mostly slows down or mostly
-  times out.
+- **Crash reasons** against real engines: no engine crashed in the AWS races.
+  They are tested against stand-in logs.
 - **`--cache`**, and `runai_streamer` being in the `vllm/vllm-openai` image.
 - **The Datadog sink**: `type: datadog` with `api.key` and `api.site` in its
   config.
-- **AWS** (`./dot.nu setup aws`). AWS has no two-L4 instance, so it runs two
-  pools: one-L4 `g6.2xlarge` nodes for copies and a four-L4 `g6.12xlarge` for
-  one engine split across two GPUs. Setup reserves both in the first zone of
-  us-east-1, us-east-2 or us-west-2 that has them, and destroy cancels the
-  reservations, which otherwise bill on their own. It needs a G-instance vCPU
-  quota of 80 and an access key (not a temporary login). Written, not yet run.
+
+AWS has no two-L4 instance, so it runs two pools: one-L4 `g6.2xlarge` nodes for
+copies and a four-L4 `g6.12xlarge` for one engine split across two GPUs. Setup
+reserves both in the first zone of us-east-1, us-east-2 or us-west-2 that has
+them, and destroy cancels the reservations, which otherwise bill on their own.
+It needs a G-instance vCPU quota of 80 and an access key: setup asks for it
+unless `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set.

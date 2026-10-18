@@ -26,12 +26,22 @@ spec:
           inference-vote/keys: "true"
 ---
 # Callers name these as ml-team/optimized and ml-team/audience.
+#
+# idle bounds how long the gateway waits for a streamed answer's first token
+# before it abandons the attempt and runs the request again. The 60-second
+# default is too short for 100 agents against a full-precision deployment,
+# which queues them for longer than that, and every abandoned attempt adds
+# load and counts toward shutting the deployment out of the gateway. 180
+# seconds matches how long the load test waits before it gives up itself.
 apiVersion: modelplane.ai/v1alpha1
 kind: ModelService
 metadata:
   name: optimized
   namespace: ml-team
 spec:
+  timeouts:
+    idle: 180s
+    request: 300s
   endpoints:
   - name: optimized
     selector:
@@ -44,6 +54,9 @@ metadata:
   name: audience
   namespace: ml-team
 spec:
+  timeouts:
+    idle: 180s
+    request: 300s
   endpoints:
   - name: audience
     selector:
