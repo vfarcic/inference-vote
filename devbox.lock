@@ -474,6 +474,44 @@
           "store_path": "/nix/store/mqhcxa62b673lqrcf8wacji429x3iyww-nushell-0.116.1"
         }
       }
+    },
+    "vals@0.47.0": {
+      "last_modified": "2026-10-16T02:15:57Z",
+      "resolved": "github:NixOS/nixpkgs/f20cd90e28fe0403873f473b29e42662cd86e8c4#vals",
+      "source": "devbox-search",
+      "version": "0.47.0",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/46x2ki5bnqhsjab2dnl2g97ngar4qara-vals-0.47.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/46x2ki5bnqhsjab2dnl2g97ngar4qara-vals-0.47.0"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/r7ayppv8hgmljxlssiz3r1z051kbh02y-vals-0.47.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/r7ayppv8hgmljxlssiz3r1z051kbh02y-vals-0.47.0"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/5m1bdx97ap9xjizzfhh6q00dbcraaxc8-vals-0.47.0",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/5m1bdx97ap9xjizzfhh6q00dbcraaxc8-vals-0.47.0"
+        }
+      }
     }
   }
 }

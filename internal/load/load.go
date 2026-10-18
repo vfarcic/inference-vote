@@ -10,11 +10,9 @@
 package load
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"regexp"
@@ -22,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/vfarcic/inference-vote/internal/gateway"
 )
 
 type Config struct {
@@ -193,39 +193,19 @@ func agent(ctx context.Context, cfg Config, target string, seed int64, record fu
 }
 
 func complete(ctx context.Context, client *http.Client, cfg Config, target string, history []message) (string, int, error) {
-	body, _ := json.Marshal(map[string]any{
+	a, err := gateway.Chat(ctx, client, cfg.GatewayURL, cfg.Key, map[string]any{
 		"model":       "ml-team/" + target,
 		"messages":    history,
 		"max_tokens":  cfg.MaxTokens,
 		"temperature": 0,
 	})
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(cfg.GatewayURL, "/")+"/v1/chat/completions", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.Key)
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", 0, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	var refused *gateway.StatusError
+	if errors.As(err, &refused) {
 		// The first line of the body says why, such as a context length error;
 		// numbers in it are dropped so the same reason counts once.
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
-		reason := regexp.MustCompile(`[0-9]+`).ReplaceAllString(strings.SplitN(string(msg), "\n", 2)[0], "N")
-		return "", 0, fmt.Errorf("%d %s", resp.StatusCode, reason)
+		return "", 0, fmt.Errorf("%d %s", refused.Code, regexp.MustCompile(`[0-9]+`).ReplaceAllString(refused.Body, "N"))
 	}
-	var out struct {
-		Choices []struct {
-			Message message `json:"message"`
-		} `json:"choices"`
-		Usage struct {
-			CompletionTokens int `json:"completion_tokens"`
-		} `json:"usage"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || len(out.Choices) == 0 {
-		return "", 0, fmt.Errorf("%s: unreadable answer", target)
-	}
-	return out.Choices[0].Message.Content, out.Usage.CompletionTokens, nil
+	return a.Content, a.Tokens, err
 }
 
 // approxTokens is good enough for staying under the context limit: English and

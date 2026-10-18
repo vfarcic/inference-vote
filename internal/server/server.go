@@ -21,6 +21,7 @@ import (
 
 	"github.com/vfarcic/inference-vote/internal/choice"
 	"github.com/vfarcic/inference-vote/internal/eval"
+	"github.com/vfarcic/inference-vote/internal/gateway"
 	"github.com/vfarcic/inference-vote/internal/kube"
 	"github.com/vfarcic/inference-vote/internal/load"
 	"github.com/vfarcic/inference-vote/internal/poll"
@@ -266,41 +267,22 @@ func (s *Server) chatProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.countChat(body.Target)
-	req, _ := json.Marshal(map[string]any{
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	start := time.Now()
+	a, err := gateway.Chat(ctx, http.DefaultClient, s.cfg.GatewayURL, s.cfg.GatewayKey, map[string]any{
 		"model":      choice.Namespace + "/" + body.Target,
 		"messages":   body.Messages,
 		"max_tokens": 400,
 	})
-	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-	defer cancel()
-	out, _ := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(s.cfg.GatewayURL, "/")+"/v1/chat/completions", bytes.NewReader(req))
-	out.Header.Set("Content-Type", "application/json")
-	out.Header.Set("Authorization", "Bearer "+s.cfg.GatewayKey)
-	start := time.Now()
-	resp, err := http.DefaultClient.Do(out)
 	if err != nil {
-		http.Error(w, "gateway unreachable", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-	var completion struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-		Usage struct {
-			CompletionTokens int `json:"completion_tokens"`
-		} `json:"usage"`
-	}
-	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&completion) != nil || len(completion.Choices) == 0 {
 		http.Error(w, "the model did not answer", http.StatusBadGateway)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"content": completion.Choices[0].Message.Content,
+		"content": a.Content,
 		"seconds": time.Since(start).Seconds(),
-		"tokens":  completion.Usage.CompletionTokens,
+		"tokens":  a.Tokens,
 	})
 }
 

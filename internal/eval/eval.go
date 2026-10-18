@@ -22,6 +22,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/vfarcic/inference-vote/internal/gateway"
 )
 
 //go:embed gsm8k.jsonl
@@ -133,34 +135,16 @@ func Start(ctx context.Context, cfg Config, target string) *Score {
 const instruction = "Solve the problem step by step. End with a final line in the form \"Answer: <number>\".\n\n"
 
 func ask(ctx context.Context, client *http.Client, cfg Config, target, question string) (string, error) {
-	body, _ := json.Marshal(map[string]any{
+	a, err := gateway.Chat(ctx, client, cfg.GatewayURL, cfg.Key, map[string]any{
 		"model":       "ml-team/" + target,
 		"messages":    []map[string]string{{"role": "user", "content": instruction + question}},
 		"max_tokens":  512,
 		"temperature": 0,
 	})
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(cfg.GatewayURL, "/")+"/v1/chat/completions", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.Key)
-	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: %w", target, err)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("%s answered %d", target, resp.StatusCode)
-	}
-	var out struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || len(out.Choices) == 0 {
-		return "", fmt.Errorf("%s: unreadable answer", target)
-	}
-	return out.Choices[0].Message.Content, nil
+	return a.Content, nil
 }
 
 var (

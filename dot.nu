@@ -63,8 +63,13 @@ def --env "main setup" [
 
     let pools = (pool sizes $provider $optimized)
 
-    if $provider == "aws" and not ("AWS_ACCESS_KEY_ID" in $env) {
-        aws credentials from cli
+    if $provider == "aws" {
+        if not ("AWS_ACCESS_KEY_ID" in $env) {
+            aws credentials from cli
+        }
+        if not ("AWS_ACCOUNT_ID" in $env) {
+            $env.AWS_ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text | str trim)
+        }
     }
     let creds = (main get creds $provider)
 
@@ -77,6 +82,7 @@ def --env "main setup" [
         setup aws $creds
         reserve aws gpus $zone $pools
     }
+    $env.GPU_ZONE = $zone
 
     # Two gateway callers, so Datadog can tell the audience's chat from the load
     # test.
@@ -158,7 +164,29 @@ def --env "main setup app" [
     let bridge_token = (random chars --length 32)
 
     kubectl wait inferencegateway/public --for=condition=Ready --timeout=20m
-    let gateway = (kubectl get inferencegateway public --output jsonpath="{.status.address}")
+    # The voting app runs next to the gateway, so it calls the gateway's own
+    # Service rather than its load balancer. AWS puts a Classic Load Balancer in
+    # front of it that drops any request quiet for 60 seconds, and slow answers
+    # under load take longer than that.
+    let gateway_service = (
+        kubectl --kubeconfig $WORKLOAD_KUBECONFIG --namespace envoy-gateway-system get services
+            --selector gateway.envoyproxy.io/owning-gateway-name=inference-gateway,gateway.envoyproxy.io/owning-gateway-namespace=modelplane-system
+            --output jsonpath="{.items[0].metadata.name}"
+    )
+    let gateway = $"($gateway_service).envoy-gateway-system.svc"
+
+    # Modelplane's public gateway reaches the cluster gateway through the
+    # cluster gateway's load balancer. On AWS that is a Classic Load Balancer
+    # that cuts any request quiet for 60 seconds, which slow answers under load
+    # are, and after five cuts the public gateway stops sending to it for 30
+    # seconds.
+    if $provider == "aws" {
+        (
+            kubectl --kubeconfig $WORKLOAD_KUBECONFIG --namespace envoy-gateway-system
+                annotate services --selector app.kubernetes.io/component=proxy --overwrite
+                service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout=600
+        )
+    }
 
     # The voting app and the image pre-puller, on the inference cluster.
     open --raw k8s/vote.yaml | str replace --all $IMAGE $image
@@ -169,7 +197,7 @@ def --env "main setup app" [
     # nip.io needs the load balancer's address.
     let address = (main get vote-address)
     let nip = $domain == ""
-    let domain = if $nip { $"(ip of $address).nip.io" } else { $domain }
+    let domain = if $nip { $"(ip of $address ($env.GPU_ZONE? | default "")).nip.io" } else { $domain }
     $"export DOMAIN=($domain)\n" | save --append .env
 
     (
@@ -198,6 +226,11 @@ def --env "main setup app" [
             --dry-run=client --output yaml
     ) | kubectl apply --filename -
     open --raw k8s/bridge.yaml | str replace --all $IMAGE $image | kubectl apply --filename -
+
+    # Pods read their Secrets only when they start. A restart also spares the
+    # app the back-off it entered while its Secret didn't exist yet.
+    kubectl --kubeconfig $WORKLOAD_KUBECONFIG --namespace inference-vote rollout restart deployment inference-vote
+    kubectl --namespace ml-team rollout restart deployment inference-vote-bridge
 
     let record = if ($address | str replace --all --regex '[0-9.]' '' | is-empty) {
         $"an (ansi yellow_bold)A(ansi reset) record for ($domain) pointing to (ansi yellow_bold)($address)(ansi reset)"
@@ -388,9 +421,6 @@ def --env "aws credentials from cli" [] {
     }
     $env.AWS_ACCESS_KEY_ID = $c.AccessKeyId
     $env.AWS_SECRET_ACCESS_KEY = $c.SecretAccessKey
-    if not ("AWS_ACCOUNT_ID" in $env) {
-        $env.AWS_ACCOUNT_ID = (aws sts get-caller-identity --query Account --output text | str trim)
-    }
 }
 
 # Regions setup tries on AWS, in order. Every zone in them that offers both
@@ -522,6 +552,15 @@ def "main get workload-kubeconfig" [
     if $provider == "google" {
         let token = (gcloud auth print-access-token | str trim)
         $config.users = ($config.users | each { |u| $u | upsert user { token: $token } })
+    } else if $provider == "aws" {
+        # The Secret's token lasts 15 minutes, so kubectl asks AWS for a new one
+        # on every call instead. The user is named after the EKS cluster.
+        let region = ($config.clusters.0.cluster.server | parse --regex '\.(?<region>[a-z0-9-]+)\.eks\.amazonaws\.com' | get 0.region)
+        $config.users = ($config.users | each { |u| $u | upsert user { exec: {
+            apiVersion: "client.authentication.k8s.io/v1beta1"
+            command: "aws"
+            args: [eks get-token --output json --region $region --cluster-name $u.name]
+        } } })
     }
     $config | to yaml | save --force $WORKLOAD_KUBECONFIG
     chmod 600 $WORKLOAD_KUBECONFIG
@@ -531,9 +570,26 @@ def "main get workload-kubeconfig" [
 # The IP behind an address: itself if it is one, otherwise what its name
 # resolves to. AWS load balancers have names, and a new one takes a few minutes
 # to resolve.
-def "ip of" [address: string] {
+def "ip of" [address: string, zone: string] {
     if ($address =~ '^[0-9.]+$') {
         return $address
+    }
+    # An AWS NLB has an IP in every zone of the VPC, but forwards only to nodes
+    # in its own zone, and DNS lists them all until health checks settle. Only
+    # the IP in the GPU zone is sure to have nodes behind it.
+    if $zone != "" and ($address | str ends-with ".amazonaws.com") {
+        let name = ($address | split row "." | first | str replace --regex '^(.+)-([^-]+)$' 'net/$1/$2')
+        mut ip = ""
+        while $ip == "" {
+            $ip = (
+                aws ec2 describe-network-interfaces --region ($zone | str substring 0..-2)
+                    --filters $"Name=description,Values=ELB ($name)" $"Name=availability-zone,Values=($zone)"
+                    --query "NetworkInterfaces[0].Association.PublicIp" --output text
+                    | str trim
+            )
+            if $ip in ["" "None"] { $ip = ""; sleep 10sec }
+        }
+        return $ip
     }
     mut ip = ""
     while $ip == "" {
