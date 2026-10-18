@@ -25,12 +25,13 @@ func TestChatStreams(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	a, err := Chat(context.Background(), srv.Client(), srv.URL+"/", "k", map[string]any{"model": "ml-team/optimized"})
+	var pieces []string
+	a, err := ChatStream(context.Background(), srv.Client(), srv.URL+"/", "k", map[string]any{"model": "ml-team/optimized"}, func(d string) { pieces = append(pieces, d) })
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.Content != "Hello!" || a.Tokens != 3 {
-		t.Errorf("got %+v", a)
+	if a.Content != "Hello!" || a.Tokens != 3 || strings.Join(pieces, "|") != "Hel|lo|!" {
+		t.Errorf("got %+v, pieces %q", a, pieces)
 	}
 	if got["stream"] != true || got["model"] != "ml-team/optimized" {
 		t.Errorf("request = %v", got)

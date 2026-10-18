@@ -140,11 +140,20 @@ func Args(c Config, o Options) []string {
 		// Pre-quantized weights: half the download and no conversion at load.
 		model = Model8
 	}
+	// vLLM sizes the KV cache from what's left of this share after a trial
+	// run, then captures its CUDA graphs. One engine split across two GPUs
+	// needs more for those graphs and for the GPUs' communication than the
+	// trial shows: at 0.90, FP8 split across two L4s fills the GPUs with KV
+	// cache and runs out of memory capturing them, every start.
+	utilization := "0.90"
+	if c[1] == A {
+		utilization = "0.85"
+	}
 	args := []string{
 		"--model=" + model,
 		"--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
 		"--max-model-len=8192",
-		"--gpu-memory-utilization=0.90",
+		"--gpu-memory-utilization=" + utilization,
 		`--default-chat-template-kwargs={"enable_thinking": false}`,
 	}
 	if o.Cache {

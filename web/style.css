@@ -84,6 +84,19 @@ button:disabled { opacity: 0.4; cursor: default; }
 .stats th { text-align: left; font-weight: 400; color: var(--muted); padding: 6px 0; }
 .stats td { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
+/* Results: the table on the left, the model's explanation on the right. */
+.verdict { background: var(--panel); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; }
+.verdict h2 { margin: 0 0 12px; }
+.verdict-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.results { width: 100%; border-collapse: collapse; font-size: 1.1rem; margin-bottom: 16px; }
+.results thead th { text-align: right; color: var(--muted); font-weight: 400; padding: 4px 0; }
+.results thead th:first-child { text-align: left; }
+.results tbody th { text-align: left; font-weight: 400; color: var(--muted); padding: 5px 0; }
+.results td { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; padding-left: 12px; }
+.results td.win { color: var(--won); }
+.results.evidence { font-size: 0.95rem; }
+.analysis { font-size: 1.3rem; line-height: 1.5; margin: 0 0 8px; white-space: pre-wrap; }
+
 .manifests { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 0.85rem; }
 .manifests th { text-align: left; color: var(--muted); padding: 6px 10px; }
 .manifests td { padding: 0 10px; vertical-align: top; border-left: 1px solid #2a3140; }
@@ -92,4 +105,4 @@ button:disabled { opacity: 0.4; cursor: default; }
 .manifests tr.left td:first-child, .manifests tr.right td:last-child { background: #2a2414; }
 .manifests tr.left td:last-child, .manifests tr.right td:first-child { background: repeating-linear-gradient(45deg, transparent 0 6px, #161a23 6px 12px); }
 
-@media (max-width: 800px) { .race { grid-template-columns: 1fr; } .side { grid-template-rows: auto; grid-row: auto; } }
+@media (max-width: 800px) { .race, .verdict-grid { grid-template-columns: 1fr; } .side { grid-template-rows: auto; grid-row: auto; } }

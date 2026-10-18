@@ -9,6 +9,7 @@ import (
 
 	"github.com/vfarcic/inference-vote/internal/choice"
 	"github.com/vfarcic/inference-vote/internal/diff"
+	"github.com/vfarcic/inference-vote/internal/engines"
 	"github.com/vfarcic/inference-vote/internal/eval"
 	"github.com/vfarcic/inference-vote/internal/load"
 	"github.com/vfarcic/inference-vote/internal/poll"
@@ -24,6 +25,10 @@ type race struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	targets map[string]*raceTarget
+	engines *engines.Tracker // what the engines report, the evidence behind the results
+
+	results       *results // nil until asked for, or until every test finished
+	cancelResults context.CancelFunc
 }
 
 type raceTarget struct {
@@ -63,6 +68,8 @@ func (s *Server) syncRace(ctx context.Context, st poll.State) {
 	if s.race == nil {
 		rctx, cancel := context.WithCancel(ctx)
 		s.race = &race{session: st.Session, ctx: rctx, cancel: cancel, targets: map[string]*raceTarget{}}
+		s.race.engines = engines.Track(rctx, 10*time.Second, s.engineEndpoints)
+		go s.finalResults(rctx, st.Session)
 	}
 	for _, target := range raceTargets {
 		serving := target == "optimized" || st.Serving
@@ -134,15 +141,25 @@ type raceView struct {
 	Optimized raceSide   `json:"optimized"`
 	Audience  raceSide   `json:"audience"`
 	Manifests []diff.Row `json:"manifests"` // optimized on the left, the audience's on the right
+	Results   *results   `json:"results,omitempty"`
 }
 
 // raceState is what the presenter's race screen polls. It is empty outside the
 // race, so nothing about the optimized deployment shows before it.
 func (s *Server) raceState(w http.ResponseWriter, r *http.Request) {
-	st := s.poll.Snapshot()
-	if st.Phase != poll.Race {
+	v, ok := s.raceView()
+	if !ok {
 		w.WriteHeader(http.StatusNoContent)
 		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+// raceView is the race as it stands, or false outside the race.
+func (s *Server) raceView() (raceView, bool) {
+	st := s.poll.Snapshot()
+	if st.Phase != poll.Race {
+		return raceView{}, false
 	}
 	opt, _ := choice.Parse(st.Optimized)
 	dep, _ := choice.Parse(st.Deployed)
@@ -172,10 +189,13 @@ func (s *Server) raceState(w http.ResponseWriter, r *http.Request) {
 				side.Accuracy = &sv
 			}
 		}
+		if s.race.results != nil {
+			v.Results = s.race.results.view()
+		}
 	}
 	s.raceMu.Unlock()
 	v.Ended = raceEnded(v, st.Serving)
-	writeJSON(w, http.StatusOK, v)
+	return v, true
 }
 
 // raceEnded is when the last test finished, or nil while any still runs. A

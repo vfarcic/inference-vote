@@ -183,7 +183,8 @@
       phase.classList.add("bad");
     }
 
-    next.onclick = () => post("/api/presenter/next");
+    // In the race, Next asks for the results so far; again refreshes them.
+    next.onclick = () => post(state && state.phase === "race" ? "/api/presenter/results" : "/api/presenter/next");
     // Reset needs two clicks, so a stray one mid-talk cannot wipe the votes.
     reset.onclick = () => {
       if (!armed) { armed = true; reset.textContent = "Really reset?"; setTimeout(() => { armed = false; reset.textContent = "Reset"; }, 3000); return; }
@@ -223,6 +224,38 @@
       return `<section class="side"><h2>${esc(title)} <span class="config">${esc(side.config)}</span></h2><div>${swapped}${summaryHTML(side.summary)}</div><div>${body}</div></section>`;
     }
 
+    // The code decides each winner; the optimized model explains why, from
+    // those numbers and what the engines reported.
+    function resultsHTML(r) {
+      if (!r) return "";
+      const mark = (row, who) => (row.winner === who ? ` class="win"` : "");
+      const table = r.rows && r.rows.length
+        ? `<table class="results"><thead><tr><th></th><th>Optimized</th><th>Your pick</th></tr></thead><tbody>${r.rows.map((row) =>
+            `<tr><th>${esc(row.measure)}</th><td${mark(row, "optimized")}>${esc(row.optimized)}</td><td${mark(row, "audience")}>${esc(row.audience)}</td></tr>`).join("")}</tbody></table>`
+        : "";
+      const pct = (v) => (v === null || v === undefined ? "-" : `${Math.round(v * 100)}%`);
+      const o = (r.evidence || {}).optimized, a = (r.evidence || {}).audience;
+      const evidence = o && a
+        ? `<table class="results evidence"><thead><tr><th>What the engines reported</th><th>Optimized</th><th>Your pick</th></tr></thead><tbody>
+            <tr><th>Room for full-length conversations, per engine</th><td>${o.maxConcurrency.toFixed(1)}</td><td>${a.maxConcurrency.toFixed(1)}</td></tr>
+            <tr><th>KV cache in use, average</th><td>${pct(o.kvUsageAvg)}</td><td>${pct(a.kvUsageAvg)}</td></tr>
+            <tr><th>Requests waiting, average</th><td>${Math.round(o.waitingAvg)}</td><td>${Math.round(a.waitingAvg)}</td></tr>
+            <tr><th>Conversations evicted</th><td>${Math.round(o.preemptions)}</td><td>${Math.round(a.preemptions)}</td></tr>
+            <tr><th>Prompt found in the prefix cache</th><td>${pct(o.prefixHitRate)}</td><td>${pct(a.prefixHitRate)}</td></tr>
+            <tr><th>Guessed tokens accepted</th><td>${pct(o.specAcceptance)}</td><td>${pct(a.specAcceptance)}</td></tr>
+          </tbody></table>`
+        : "";
+      const by = r.source === "writing"
+        ? (r.text ? "The optimized model is writing..." : "Asking the optimized model, which is busy with the load test...")
+        : r.source === "model" ? "Written by the optimized model"
+        : "The model didn't answer in time; this is from the numbers alone";
+      return `<section class="verdict">
+        <h2>${r.final ? "Results" : `Results after ${clock(r.elapsed)}`}</h2>
+        <div class="verdict-grid"><div>${table}${evidence}</div>
+        <div><p class="analysis">${esc(r.text || "")}</p><p class="muted">${by}</p></div></div>
+      </section>`;
+    }
+
     // Same line, same height: lines only one manifest has leave a gap on the
     // other side, and what differs is marked.
     function manifestsHTML(rows) {
@@ -243,11 +276,11 @@
       phase.classList.remove("bad");
       const labels = { lobby: "Lobby", voting: `Question ${s.question + 1} open`, deploying: "Deploying", race: "Race" };
       phase.textContent = labels[s.phase] || s.phase;
-      next.disabled = s.phase === "race";
+      next.disabled = false;
       next.textContent = s.phase === "lobby" ? "Open question 1"
         : s.phase === "voting" ? (s.question === s.questions.length - 1 ? "Apply" : "Next question")
         : s.phase === "deploying" ? "Start the race"
-        : "Race on";
+        : race && race.results ? "Refresh results" : "Show results";
       let html = "";
       if (s.phase === "lobby") {
         html = `<h1>Scan the QR code</h1><img class="qr" src="/qr.png" alt="QR code for ${esc(location.host)}"><p class="muted">${esc(location.host)}</p>`;
@@ -260,6 +293,7 @@
         html = race
           ? `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
             <div class="race">${sideHTML("Optimized", race.optimized, s, false)}${sideHTML("Your pick", race.audience, s, true)}</div>
+            ${resultsHTML(race.results)}
             ${manifestsHTML(race.manifests)}`
           : `<h1>The race</h1><p class="muted">Starting...</p>`;
       }

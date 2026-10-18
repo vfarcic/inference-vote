@@ -78,6 +78,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/chat", s.chatProxy)
 	mux.HandleFunc("POST /api/presenter/next", s.presenter(func() { s.poll.Next() }))
 	mux.HandleFunc("POST /api/presenter/reset", s.presenter(s.poll.Reset))
+	mux.HandleFunc("POST /api/presenter/results", s.showResults)
 	mux.HandleFunc("GET /api/bridge/desired", s.bridgeDesired)
 	mux.HandleFunc("POST /api/bridge/report", s.bridgeReport)
 	mux.HandleFunc("GET /qr.png", qrCode)
@@ -331,13 +332,15 @@ type podList struct {
 
 type pod struct {
 	Metadata struct {
-		Name      string `json:"name"`
-		Namespace string `json:"namespace"`
+		Name      string            `json:"name"`
+		Namespace string            `json:"namespace"`
+		Labels    map[string]string `json:"labels"`
 	} `json:"metadata"`
 	Spec struct {
 		NodeName string `json:"nodeName"`
 	} `json:"spec"`
 	Status struct {
+		PodIP             string `json:"podIP"`
 		ContainerStatuses []struct {
 			Ready        bool `json:"ready"`
 			RestartCount int  `json:"restartCount"`
