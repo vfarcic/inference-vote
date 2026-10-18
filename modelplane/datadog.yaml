@@ -1,6 +1,9 @@
 # Every inference cluster's collector ships the fleet's metrics to Datadog.
 # The API key comes from the datadog Secret the setup creates in
 # modelplane-system; Modelplane copies it to each cluster.
+#
+# The demo org is shared, so everything is tagged env:cyoa-kubecon-na-26: filter
+# dashboards and monitors on it, and delete by it after the talk.
 apiVersion: modelplane.ai/v1alpha1
 kind: TelemetryDestination
 metadata:
@@ -15,3 +18,6 @@ spec:
       api:
         key: ${env:DD_API_KEY}
         site: ${env:DD_SITE}
+      host_metadata:
+        tags:
+        - env:cyoa-kubecon-na-26
