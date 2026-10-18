@@ -186,7 +186,9 @@ func agent(ctx context.Context, cfg Config, target string, seed int64, record fu
 			continue
 		}
 		history = append(history, message{Role: "assistant", Content: answer}, message{Role: "user", Content: toolResult(rng)})
-		if approxTokens(history) > 6000 {
+		// At 6,800 estimated tokens the longest real prompts reach about 7,500,
+		// which leaves room for a full answer within the 8,192 token context.
+		if approxTokens(history) > 6800 {
 			history = []message{history[0], {Role: "user", Content: task(rng)}}
 		}
 	}

@@ -93,7 +93,7 @@ func serve(ctx context.Context, args []string) error {
 			Targets:    []string{"audience", "optimized"},
 			Agents:     *loadAgents,
 			Duration:   *loadDuration,
-			MaxTokens:  256,
+			MaxTokens:  512,
 			Seed:       42,
 		},
 		Eval: eval.Config{
@@ -205,7 +205,7 @@ func runLoad(ctx context.Context, args []string) error {
 	targets := fs.String("targets", "audience,optimized", "ModelServices to load, comma separated")
 	agents := fs.Int("agents", 16, "concurrent agents per target")
 	duration := fs.Duration("duration", 10*time.Minute, "how long to run")
-	maxTokens := fs.Int("max-tokens", 256, "answer length cap")
+	maxTokens := fs.Int("max-tokens", 512, "answer length cap")
 	fs.Parse(args)
 	if *gateway == "" || os.Getenv("GATEWAY_KEY") == "" {
 		return fmt.Errorf("--gateway and GATEWAY_KEY must be set")
