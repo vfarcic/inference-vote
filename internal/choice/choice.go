@@ -161,9 +161,10 @@ func Args(c Config, o Options) []string {
 		// fresh download; the streamer reads it in parallel.
 		args = append(args, "--load-format=runai_streamer")
 	}
-	if c[0] == B {
-		args = append(args, "--kv-cache-dtype=fp8")
-	}
+	// The KV cache stays 16-bit with either answer. Question 1 is about the
+	// weights: quantizing them frees memory for the KV cache, which then holds
+	// more conversations. Quantizing the KV cache too is a separate trade-off,
+	// with its own accuracy cost, that one vote can't explain alongside it.
 	if c[1] == A {
 		args = append(args, "--tensor-parallel-size=2")
 	}

@@ -7,7 +7,7 @@ Three questions, each one an inference concept:
 
 | # | Question | A | B |
 |---|---|---|---|
-| 1 | What do you care about more? | Keep the model as precise as it was trained (16-bit) | Make room for more conversations (FP8 weights and KV cache) |
+| 1 | What do you care about more? | Keep the model as precise as it was trained (16-bit) | Make room for more conversations (FP8 weights; the KV cache stays 16-bit) |
 | 2 | You have two GPUs. How do you use them? | One engine split across both (tensor parallelism) | Two copies, one per GPU, routed by the endpoint picker |
 | 3 | How should the model write its answers? | One token at a time | Guess ahead from what's already in the conversation, the model checks (n-gram speculative decoding) |
 
@@ -107,6 +107,12 @@ the GPUs' memory gave one engine room for 48 full-length conversations, against
 outweighed the GPUs talking over PCIe. Full precision as two copies was the
 worst, at about 95.
 
+That rehearsal quantized the KV cache as well as the weights. Answer B now
+quantizes only the weights, so every FP8 config has about half the room it had
+then (an estimated 8.5 conversations per L4 instead of 17, against 2.8 at full
+precision), and all eight need measuring again, the choice of `--optimized`
+included.
+
 ### Right before going on stage
 
 ```sh
@@ -163,8 +169,8 @@ screen, and the load test.
   about ten minutes.
 
 - Full precision leaves room for 2.79 conversations of 8,192 tokens on an L4;
-  FP8 weights and KV cache leave room for 17.03. Under the load test, FP8
-  served about 43% more tokens per second.
+  FP8 weights and KV cache left room for 17.03, back when answer B quantized
+  both. Under the load test, FP8 served about 43% more tokens per second.
 - A draft model doesn't fit next to full-precision Qwen3-8B on one L4 (0.25 GiB
   left for the KV cache), which is why question 3 uses n-gram speculation.
 

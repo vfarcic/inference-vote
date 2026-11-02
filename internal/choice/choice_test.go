@@ -34,7 +34,7 @@ func TestArgs(t *testing.T) {
 		want, avoid []string
 	}{
 		{"AAA", []string{"--model=" + Model16, "--tensor-parallel-size=2"}, []string{"--kv-cache-dtype", "--speculative-config"}},
-		{"BBB", []string{"--model=" + Model8, "--kv-cache-dtype=fp8", "--speculative-config="}, []string{"--tensor-parallel-size"}},
+		{"BBB", []string{"--model=" + Model8, "--speculative-config="}, []string{"--tensor-parallel-size", "--kv-cache-dtype"}},
 	}
 	for _, tc := range cases {
 		c, _ := Parse(tc.config)

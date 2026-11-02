@@ -107,7 +107,7 @@ func failRate(s Side) float64 {
 // states mechanisms, not outcomes: the outcome is whatever the race measured.
 const Background = `What each answer does:
 
-Question 1, precision. A keeps the model at full precision (BF16). On one 24 GB GPU the weights take about 16 GB, which leaves little room for the KV cache, the memory each conversation in progress needs. B uses FP8 weights and an FP8 KV cache: the weights take about 8 GB and every cached token half the space, so several times more conversations fit. When the KV cache is full, requests wait in the queue, or the engine evicts a conversation (a preemption) and recomputes it later. FP8 usually costs this model little accuracy.
+Question 1, precision. A keeps the model at full precision (BF16). On one 24 GB GPU the weights take about 16 GB, which leaves little room for the KV cache, the memory each conversation in progress needs. B uses FP8 weights: they take about 8 GB, and the memory that frees goes to the KV cache, so about three times more conversations fit. The KV cache itself stays 16-bit in both. When the KV cache is full, requests wait in the queue, or the engine evicts a conversation (a preemption) and recomputes it later. FP8 usually costs this model little accuracy.
 
 Question 2, two GPUs. A splits one engine across both GPUs (tensor parallelism). Each GPU holds half the weights, so there is more room for the KV cache, but the two GPUs exchange results after every layer, over PCIe because these GPUs have no NVLink, which costs time on every token. B runs two independent copies, one per GPU, with nothing to coordinate. The gateway sends each request to one of them, preferring the copy that already has the conversation's opening in its prefix cache.
 
