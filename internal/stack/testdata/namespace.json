@@ -1,0 +1,4568 @@
+{
+  "items": [
+    {
+      "apiVersion": "v1",
+      "data": {
+        "epp-config.yaml": "apiVersion: llm-d.ai/v1alpha1\nkind: EndpointPickerConfig\nplugins:\n- type: approx-prefix-cache-producer\n  parameters:\n    autoTune: false\n    blockSizeTokens: 16\n    maxPrefixBlocksToMatch: 256\n    lruCapacityPerServer: 31250\n- type: prefix-cache-scorer\n- type: queue-scorer\n- type: max-score-picker\nschedulingProfiles:\n- name: default\n  plugins:\n  - pluginRef: max-score-picker\n  - pluginRef: prefix-cache-scorer\n    weight: 2\n  - pluginRef: queue-scorer\n    weight: 1\n"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "name": "audience-4cd7f-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12058",
+        "uid": "22c386f9-1610-4ddf-ae94-0f1e11ae4acd"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "data": {
+        "ca.crt": "-----BEGIN CERTIFICATE-----\nMIIB2jCCAYCgAwIBAgIUcLkRREgKdSVa2TBZ4HVu/3HlEEkwCgYIKoZIzj0EAwIw\nSzFJMEcGA1UEAxNAbW9kZWxwbGFuZSBjbHVzdGVyIENBIGdhdGV3YXktdm90ZS04\nNTBlMi5tb2RlbHBsYW5lLXN5c3RlbS5zdmMuYzAeFw0yNjExMDIxNjQwMzZaFw0z\nNjEwMzAxNjQwMzZaMEsxSTBHBgNVBAMTQG1vZGVscGxhbmUgY2x1c3RlciBDQSBn\nYXRld2F5LXZvdGUtODUwZTIubW9kZWxwbGFuZS1zeXN0ZW0uc3ZjLmMwWTATBgcq\nhkjOPQIBBggqhkjOPQMBBwNCAASw7dEu6Ibs8+utQ461iL+LRUI66VcAYtmhLU1N\nBX04sbuKAHuU0Jr6zbu9QRriZWbg0s4JYhHqhp+Zhi1NsRvLo0IwQDAOBgNVHQ8B\nAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUGn22lePjg0yRPI92\nNxS+Db0jjHwwCgYIKoZIzj0EAwIDSAAwRQIhAMqLGe0OxOy/CHoD+chCYz++FVQH\nZ5cmUdJL+tNjH1QyAiBVMJoCzEGoedbvB69pAsiRfsxXaxzw/pi+U1wnp9cKuw==\n-----END CERTIFICATE-----"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "name": "audience-public-7d752-vote-ca-2aa67",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "14186",
+        "uid": "6d73e686-47d9-44eb-bac0-f16039237049"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "data": {
+        "epp-config.yaml": "apiVersion: llm-d.ai/v1alpha1\nkind: EndpointPickerConfig\nplugins:\n- type: approx-prefix-cache-producer\n  parameters:\n    autoTune: false\n    blockSizeTokens: 16\n    maxPrefixBlocksToMatch: 256\n    lruCapacityPerServer: 31250\n- type: prefix-cache-scorer\n- type: queue-scorer\n- type: max-score-picker\nschedulingProfiles:\n- name: default\n  plugins:\n  - pluginRef: max-score-picker\n  - pluginRef: prefix-cache-scorer\n    weight: 2\n  - pluginRef: queue-scorer\n    weight: 1\n"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "name": "optimized-a7558-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9111",
+        "uid": "806743d2-2b9b-4b78-98f1-cf9de2d7bd23"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "data": {
+        "ca.crt": "-----BEGIN CERTIFICATE-----\nMIIB2jCCAYCgAwIBAgIUcLkRREgKdSVa2TBZ4HVu/3HlEEkwCgYIKoZIzj0EAwIw\nSzFJMEcGA1UEAxNAbW9kZWxwbGFuZSBjbHVzdGVyIENBIGdhdGV3YXktdm90ZS04\nNTBlMi5tb2RlbHBsYW5lLXN5c3RlbS5zdmMuYzAeFw0yNjExMDIxNjQwMzZaFw0z\nNjEwMzAxNjQwMzZaMEsxSTBHBgNVBAMTQG1vZGVscGxhbmUgY2x1c3RlciBDQSBn\nYXRld2F5LXZvdGUtODUwZTIubW9kZWxwbGFuZS1zeXN0ZW0uc3ZjLmMwWTATBgcq\nhkjOPQIBBggqhkjOPQMBBwNCAASw7dEu6Ibs8+utQ461iL+LRUI66VcAYtmhLU1N\nBX04sbuKAHuU0Jr6zbu9QRriZWbg0s4JYhHqhp+Zhi1NsRvLo0IwQDAOBgNVHQ8B\nAf8EBAMCAqQwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUGn22lePjg0yRPI92\nNxS+Db0jjHwwCgYIKoZIzj0EAwIDSAAwRQIhAMqLGe0OxOy/CHoD+chCYz++FVQH\nZ5cmUdJL+tNjH1QyAiBVMJoCzEGoedbvB69pAsiRfsxXaxzw/pi+U1wnp9cKuw==\n-----END CERTIFICATE-----"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:45Z",
+        "name": "optimized-public-b9fe2-vote-ca-d9c1c",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "11760",
+        "uid": "fd285e68-5684-4445-a72e-f59131f749d4"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "annotations": {
+          "modelplane.ai/epp-config-checksum": "20c1dfea3fc4ad41e335cc74edbeb1e8689a607bc4bf7395849ffd2cf0bb2ae1"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generateName": "audience-4cd7f-epp-86c9c6c868-",
+        "generation": 1,
+        "labels": {
+          "app": "audience-4cd7f-epp",
+          "modelplane.ai/deployment": "audience",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "picker",
+          "pod-template-hash": "86c9c6c868",
+          "topology.kubernetes.io/region": "us-east-2",
+          "topology.kubernetes.io/zone": "us-east-2a"
+        },
+        "name": "audience-4cd7f-epp-86c9c6c868-4xn8q",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "ReplicaSet",
+            "name": "audience-4cd7f-epp-86c9c6c868",
+            "uid": "e77fcb2b-0746-42b6-b4d4-b56f6b6bcf75"
+          }
+        ],
+        "resourceVersion": "12121",
+        "uid": "c89e36eb-0217-4b37-902b-f642f1f0d1a3"
+      },
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "--pool-name=audience-4cd7f-pool",
+              "--pool-namespace=mp-ml-team-51733",
+              "--pool-group=inference.networking.k8s.io",
+              "--config-file=/config/epp-config.yaml",
+              "--grpc-port=9002",
+              "--metrics-port=9090",
+              "--metrics-endpoint-auth=false"
+            ],
+            "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "epp",
+            "ports": [
+              {
+                "containerPort": 9002,
+                "name": "grpc",
+                "protocol": "TCP"
+              },
+              {
+                "containerPort": 9003,
+                "name": "grpc-health",
+                "protocol": "TCP"
+              },
+              {
+                "containerPort": 9090,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "resources": {},
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/config",
+                "name": "config"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-qbnrp",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "ip-10-0-54-207.us-east-2.compute.internal",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "audience-4cd7f-epp",
+        "serviceAccountName": "audience-4cd7f-epp",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "audience-4cd7f-epp"
+            },
+            "name": "config"
+          },
+          {
+            "name": "kube-api-access-qbnrp",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "containerID": "containerd://96cd1c7a1c9f4ca7cf5c2a75be8e45dd7981c9abcd068ae0a91bf3e862e5b43b",
+            "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+            "imageID": "ghcr.io/llm-d/llm-d-router-endpoint-picker@sha256:873179822ab0895a37ea09f2112ca39a6ae50a26612561c8bfad7f9a8c5af6f5",
+            "lastState": {},
+            "name": "epp",
+            "ready": true,
+            "resources": {},
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-11-02T16:51:06Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 65532,
+                "supplementalGroups": [
+                  65532
+                ],
+                "uid": 65532
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/config",
+                "name": "config"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-qbnrp",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ]
+          }
+        ],
+        "hostIP": "10.0.54.207",
+        "hostIPs": [
+          {
+            "ip": "10.0.54.207"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.0.51.185",
+        "podIPs": [
+          {
+            "ip": "10.0.51.185"
+          }
+        ],
+        "qosClass": "BestEffort",
+        "resources": {},
+        "startTime": "2026-11-02T16:51:06Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generateName": "audience-4cd7f-qwen3-8b-303a3-5975655f47-",
+        "generation": 1,
+        "labels": {
+          "modelplane.ai/deployment": "audience",
+          "modelplane.ai/engine": "qwen3-8b",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "Standalone",
+          "modelplane.ai/serving": "audience-4cd7f",
+          "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3",
+          "pod-template-hash": "5975655f47",
+          "topology.kubernetes.io/region": "us-east-2",
+          "topology.kubernetes.io/zone": "us-east-2c"
+        },
+        "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-496d6",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "ReplicaSet",
+            "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47",
+            "uid": "cc471179-add6-4d3e-99e9-e03831ca340b"
+          }
+        ],
+        "resourceVersion": "14016",
+        "uid": "82719752-9003-49dd-a31e-a014ac14e744"
+      },
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "--model=Qwen/Qwen3-8B-FP8",
+              "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+              "--max-model-len=8192",
+              "--gpu-memory-utilization=0.90",
+              "--default-chat-template-kwargs={\"enable_thinking\": false}"
+            ],
+            "env": [
+              {
+                "name": "MODELPLANE_SERVED_MODEL_NAME",
+                "value": "ml-team/audience"
+              }
+            ],
+            "image": "vllm/vllm-openai:v0.27.1",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "engine",
+            "ports": [
+              {
+                "containerPort": 8000,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health",
+                "port": 8000,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 30,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 5
+            },
+            "resources": {
+              "claims": [
+                {
+                  "name": "devices"
+                }
+              ]
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/dev/shm",
+                "name": "dshm"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-5sfvt",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "ip-10-0-87-93.us-east-2.compute.internal",
+        "nodeSelector": {
+          "modelplane.ai/pool": "copies"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "resourceClaims": [
+          {
+            "name": "devices",
+            "resourceClaimTemplateName": "audience-4cd7f-qwen3-8b-standalone-devices-3cc3b"
+          }
+        ],
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "nvidia.com/gpu",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "emptyDir": {
+              "medium": "Memory"
+            },
+            "name": "dshm"
+          },
+          {
+            "name": "kube-api-access-5sfvt",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:07Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:54:54Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:54:54Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "allocatedResourcesStatus": [
+              {
+                "name": "claim:devices",
+                "resources": [
+                  {
+                    "health": "Unknown",
+                    "resourceID": "k8s.gpu.nvidia.com/claim=8ad23f6a-1c1a-49a7-9de5-668c2ca21c3f-gpu-0"
+                  }
+                ]
+              }
+            ],
+            "containerID": "containerd://39c581bd8f7d831c910dd4f875f460e900cb14bdb2dbf3824e1d577e920c45fe",
+            "image": "docker.io/vllm/vllm-openai:v0.27.1",
+            "imageID": "docker.io/vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+            "lastState": {},
+            "name": "engine",
+            "ready": true,
+            "resources": {
+              "claims": [
+                {
+                  "name": "devices"
+                }
+              ]
+            },
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-11-02T16:51:07Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 0,
+                "supplementalGroups": [
+                  0,
+                  39
+                ],
+                "uid": 0
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/dev/shm",
+                "name": "dshm"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-5sfvt",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ]
+          }
+        ],
+        "hostIP": "10.0.87.93",
+        "hostIPs": [
+          {
+            "ip": "10.0.87.93"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.0.83.200",
+        "podIPs": [
+          {
+            "ip": "10.0.83.200"
+          }
+        ],
+        "qosClass": "BestEffort",
+        "resourceClaimStatuses": [
+          {
+            "name": "devices",
+            "resourceClaimName": "audience-4cd7f-qwen3-8b-303a3-5975655f47-496d6-devices-gpcml"
+          }
+        ],
+        "resources": {},
+        "startTime": "2026-11-02T16:51:06Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generateName": "audience-4cd7f-qwen3-8b-303a3-5975655f47-",
+        "generation": 1,
+        "labels": {
+          "modelplane.ai/deployment": "audience",
+          "modelplane.ai/engine": "qwen3-8b",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "Standalone",
+          "modelplane.ai/serving": "audience-4cd7f",
+          "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3",
+          "pod-template-hash": "5975655f47",
+          "topology.kubernetes.io/region": "us-east-2",
+          "topology.kubernetes.io/zone": "us-east-2c"
+        },
+        "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-9b2dp",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "ReplicaSet",
+            "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47",
+            "uid": "cc471179-add6-4d3e-99e9-e03831ca340b"
+          }
+        ],
+        "resourceVersion": "14081",
+        "uid": "80698562-d5bc-47e0-b626-9fde175cce99"
+      },
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "--model=Qwen/Qwen3-8B-FP8",
+              "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+              "--max-model-len=8192",
+              "--gpu-memory-utilization=0.90",
+              "--default-chat-template-kwargs={\"enable_thinking\": false}"
+            ],
+            "env": [
+              {
+                "name": "MODELPLANE_SERVED_MODEL_NAME",
+                "value": "ml-team/audience"
+              }
+            ],
+            "image": "vllm/vllm-openai:v0.27.1",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "engine",
+            "ports": [
+              {
+                "containerPort": 8000,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health",
+                "port": 8000,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 30,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 5
+            },
+            "resources": {
+              "claims": [
+                {
+                  "name": "devices"
+                }
+              ]
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/dev/shm",
+                "name": "dshm"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-vjvrc",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "ip-10-0-83-125.us-east-2.compute.internal",
+        "nodeSelector": {
+          "modelplane.ai/pool": "copies"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "resourceClaims": [
+          {
+            "name": "devices",
+            "resourceClaimTemplateName": "audience-4cd7f-qwen3-8b-standalone-devices-3cc3b"
+          }
+        ],
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "nvidia.com/gpu",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "emptyDir": {
+              "medium": "Memory"
+            },
+            "name": "dshm"
+          },
+          {
+            "name": "kube-api-access-vjvrc",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:07Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:55:02Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:55:02Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "allocatedResourcesStatus": [
+              {
+                "name": "claim:devices",
+                "resources": [
+                  {
+                    "health": "Unknown",
+                    "resourceID": "k8s.gpu.nvidia.com/claim=7c59dacf-02c7-41b6-b262-dac4f2ff15cf-gpu-0"
+                  }
+                ]
+              }
+            ],
+            "containerID": "containerd://366c07bf1fa49d5c8880a6940c3d502d310a46d3dbbb605958604ccd2c541829",
+            "image": "docker.io/vllm/vllm-openai:v0.27.1",
+            "imageID": "docker.io/vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+            "lastState": {},
+            "name": "engine",
+            "ready": true,
+            "resources": {
+              "claims": [
+                {
+                  "name": "devices"
+                }
+              ]
+            },
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-11-02T16:51:07Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 0,
+                "supplementalGroups": [
+                  0,
+                  39
+                ],
+                "uid": 0
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/dev/shm",
+                "name": "dshm"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-vjvrc",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ]
+          }
+        ],
+        "hostIP": "10.0.83.125",
+        "hostIPs": [
+          {
+            "ip": "10.0.83.125"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.0.91.249",
+        "podIPs": [
+          {
+            "ip": "10.0.91.249"
+          }
+        ],
+        "qosClass": "BestEffort",
+        "resourceClaimStatuses": [
+          {
+            "name": "devices",
+            "resourceClaimName": "audience-4cd7f-qwen3-8b-303a3-5975655f47-9b2dp-devices-9t86n"
+          }
+        ],
+        "resources": {},
+        "startTime": "2026-11-02T16:51:06Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "annotations": {
+          "modelplane.ai/epp-config-checksum": "20c1dfea3fc4ad41e335cc74edbeb1e8689a607bc4bf7395849ffd2cf0bb2ae1"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generateName": "optimized-a7558-epp-76dc67c644-",
+        "generation": 1,
+        "labels": {
+          "app": "optimized-a7558-epp",
+          "modelplane.ai/deployment": "optimized",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "picker",
+          "pod-template-hash": "76dc67c644",
+          "topology.kubernetes.io/region": "us-east-2",
+          "topology.kubernetes.io/zone": "us-east-2a"
+        },
+        "name": "optimized-a7558-epp-76dc67c644-sdr2b",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "ReplicaSet",
+            "name": "optimized-a7558-epp-76dc67c644",
+            "uid": "6f4d6a33-0220-4b33-98d3-4e778d434554"
+          }
+        ],
+        "resourceVersion": "9173",
+        "uid": "ea971074-b4ce-428c-b837-b272379c052f"
+      },
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "--pool-name=optimized-a7558-pool",
+              "--pool-namespace=mp-ml-team-51733",
+              "--pool-group=inference.networking.k8s.io",
+              "--config-file=/config/epp-config.yaml",
+              "--grpc-port=9002",
+              "--metrics-port=9090",
+              "--metrics-endpoint-auth=false"
+            ],
+            "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "epp",
+            "ports": [
+              {
+                "containerPort": 9002,
+                "name": "grpc",
+                "protocol": "TCP"
+              },
+              {
+                "containerPort": 9003,
+                "name": "grpc-health",
+                "protocol": "TCP"
+              },
+              {
+                "containerPort": 9090,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "resources": {},
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/config",
+                "name": "config"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-mvpzh",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "ip-10-0-54-207.us-east-2.compute.internal",
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "optimized-a7558-epp",
+        "serviceAccountName": "optimized-a7558-epp",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "configMap": {
+              "defaultMode": 420,
+              "name": "optimized-a7558-epp"
+            },
+            "name": "config"
+          },
+          {
+            "name": "kube-api-access-mvpzh",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:45Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:44Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:46Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:46Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:44Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "containerID": "containerd://e832db9a372838f088361e424598a894ba1c22d3408d1d77b83b6a73b1210681",
+            "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+            "imageID": "ghcr.io/llm-d/llm-d-router-endpoint-picker@sha256:873179822ab0895a37ea09f2112ca39a6ae50a26612561c8bfad7f9a8c5af6f5",
+            "lastState": {},
+            "name": "epp",
+            "ready": true,
+            "resources": {},
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-11-02T16:45:46Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 65532,
+                "supplementalGroups": [
+                  65532
+                ],
+                "uid": 65532
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/config",
+                "name": "config"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-mvpzh",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ]
+          }
+        ],
+        "hostIP": "10.0.54.207",
+        "hostIPs": [
+          {
+            "ip": "10.0.54.207"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.0.60.47",
+        "podIPs": [
+          {
+            "ip": "10.0.60.47"
+          }
+        ],
+        "qosClass": "BestEffort",
+        "resources": {},
+        "startTime": "2026-11-02T16:45:44Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Pod",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generateName": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-",
+        "generation": 1,
+        "labels": {
+          "modelplane.ai/deployment": "optimized",
+          "modelplane.ai/engine": "qwen3-8b",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "Standalone",
+          "modelplane.ai/serving": "optimized-a7558",
+          "modelplane.ai/workload": "optimized-a7558-qwen3-8b-3a00f",
+          "pod-template-hash": "84f96c895d",
+          "topology.kubernetes.io/region": "us-east-2",
+          "topology.kubernetes.io/zone": "us-east-2c"
+        },
+        "name": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-wgn8k",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "ReplicaSet",
+            "name": "optimized-a7558-qwen3-8b-3a00f-84f96c895d",
+            "uid": "c9b32468-9c7f-417b-b1b7-a600b7beaaa5"
+          }
+        ],
+        "resourceVersion": "11623",
+        "uid": "a4fcc76c-c43b-45f4-beca-63d8ee8a8151"
+      },
+      "spec": {
+        "containers": [
+          {
+            "args": [
+              "--model=Qwen/Qwen3-8B-FP8",
+              "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+              "--max-model-len=8192",
+              "--gpu-memory-utilization=0.85",
+              "--default-chat-template-kwargs={\"enable_thinking\": false}",
+              "--tensor-parallel-size=2"
+            ],
+            "env": [
+              {
+                "name": "MODELPLANE_SERVED_MODEL_NAME",
+                "value": "ml-team/optimized"
+              }
+            ],
+            "image": "vllm/vllm-openai:v0.27.1",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "engine",
+            "ports": [
+              {
+                "containerPort": 8000,
+                "name": "http",
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/health",
+                "port": 8000,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 30,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 5
+            },
+            "resources": {
+              "claims": [
+                {
+                  "name": "devices"
+                }
+              ]
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/dev/shm",
+                "name": "dshm"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-kp2ng",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeName": "ip-10-0-88-186.us-east-2.compute.internal",
+        "nodeSelector": {
+          "modelplane.ai/pool": "one-engine"
+        },
+        "preemptionPolicy": "PreemptLowerPriority",
+        "priority": 0,
+        "resourceClaims": [
+          {
+            "name": "devices",
+            "resourceClaimTemplateName": "optimized-a7558-qwen3-8b-standalone-devices-bd3dc"
+          }
+        ],
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {},
+        "serviceAccount": "default",
+        "serviceAccountName": "default",
+        "terminationGracePeriodSeconds": 30,
+        "tolerations": [
+          {
+            "effect": "NoSchedule",
+            "key": "nvidia.com/gpu",
+            "operator": "Exists"
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/not-ready",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          },
+          {
+            "effect": "NoExecute",
+            "key": "node.kubernetes.io/unreachable",
+            "operator": "Exists",
+            "tolerationSeconds": 300
+          }
+        ],
+        "volumes": [
+          {
+            "emptyDir": {
+              "medium": "Memory"
+            },
+            "name": "dshm"
+          },
+          {
+            "name": "kube-api-access-kp2ng",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "expirationSeconds": 3607,
+                    "path": "token"
+                  }
+                },
+                {
+                  "configMap": {
+                    "items": [
+                      {
+                        "key": "ca.crt",
+                        "path": "ca.crt"
+                      }
+                    ],
+                    "name": "kube-root-ca.crt"
+                  }
+                },
+                {
+                  "downwardAPI": {
+                    "items": [
+                      {
+                        "fieldRef": {
+                          "apiVersion": "v1",
+                          "fieldPath": "metadata.namespace"
+                        },
+                        "path": "namespace"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:45Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodReadyToStartContainers"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:45Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Initialized"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:50:33Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "Ready"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:50:33Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "ContainersReady"
+          },
+          {
+            "lastProbeTime": null,
+            "lastTransitionTime": "2026-11-02T16:45:45Z",
+            "observedGeneration": 1,
+            "status": "True",
+            "type": "PodScheduled"
+          }
+        ],
+        "containerStatuses": [
+          {
+            "allocatedResourcesStatus": [
+              {
+                "name": "claim:devices",
+                "resources": [
+                  {
+                    "health": "Unknown",
+                    "resourceID": "k8s.gpu.nvidia.com/claim=257bd521-2dcd-47cb-86b9-0c2094210f3f-gpu-0"
+                  },
+                  {
+                    "health": "Unknown",
+                    "resourceID": "k8s.gpu.nvidia.com/claim=257bd521-2dcd-47cb-86b9-0c2094210f3f-gpu-1"
+                  }
+                ]
+              }
+            ],
+            "containerID": "containerd://f14f2aa5538e7f0a3fbf738df01cb9256d8cd38e4ccf3c405f09a568ed28f048",
+            "image": "docker.io/vllm/vllm-openai:v0.27.1",
+            "imageID": "docker.io/vllm/vllm-openai@sha256:0a51ea5b4ae2dc5d81890e5173f54203d2a3ae0cfffe51b8fd2afd4391bfd967",
+            "lastState": {},
+            "name": "engine",
+            "ready": true,
+            "resources": {
+              "claims": [
+                {
+                  "name": "devices"
+                }
+              ]
+            },
+            "restartCount": 0,
+            "started": true,
+            "state": {
+              "running": {
+                "startedAt": "2026-11-02T16:48:02Z"
+              }
+            },
+            "user": {
+              "linux": {
+                "gid": 0,
+                "supplementalGroups": [
+                  0,
+                  39
+                ],
+                "uid": 0
+              }
+            },
+            "volumeMounts": [
+              {
+                "mountPath": "/dev/shm",
+                "name": "dshm"
+              },
+              {
+                "mountPath": "/var/run/secrets/kubernetes.io/serviceaccount",
+                "name": "kube-api-access-kp2ng",
+                "readOnly": true,
+                "recursiveReadOnly": "Disabled"
+              }
+            ]
+          }
+        ],
+        "hostIP": "10.0.88.186",
+        "hostIPs": [
+          {
+            "ip": "10.0.88.186"
+          }
+        ],
+        "observedGeneration": 1,
+        "phase": "Running",
+        "podIP": "10.0.82.46",
+        "podIPs": [
+          {
+            "ip": "10.0.82.46"
+          }
+        ],
+        "qosClass": "BestEffort",
+        "resourceClaimStatuses": [
+          {
+            "name": "devices",
+            "resourceClaimName": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-wgn8k-devices-vkfds"
+          }
+        ],
+        "resources": {},
+        "startTime": "2026-11-02T16:45:45Z"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "name": "audience-4cd7f-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12056",
+        "uid": "d3b3f767-5e60-4ccb-9d4d-47848605eab7"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "ServiceAccount",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "name": "optimized-a7558-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9105",
+        "uid": "17353632-0b26-4255-b59a-008dbb4d1110"
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "name": "audience-4cd7f-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12077",
+        "uid": "e2cc4ff9-5fdf-4a40-9d56-d1d1c6b868b0"
+      },
+      "spec": {
+        "clusterIP": "172.20.214.64",
+        "clusterIPs": [
+          "172.20.214.64"
+        ],
+        "internalTrafficPolicy": "Cluster",
+        "ipFamilies": [
+          "IPv4"
+        ],
+        "ipFamilyPolicy": "SingleStack",
+        "ports": [
+          {
+            "appProtocol": "http2",
+            "name": "grpc-ext-proc",
+            "port": 9002,
+            "protocol": "TCP",
+            "targetPort": 9002
+          }
+        ],
+        "selector": {
+          "app": "audience-4cd7f-epp"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "name": "optimized-a7558-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9115",
+        "uid": "9bea3fcb-13d1-4405-8c38-569faed855cd"
+      },
+      "spec": {
+        "clusterIP": "172.20.45.81",
+        "clusterIPs": [
+          "172.20.45.81"
+        ],
+        "internalTrafficPolicy": "Cluster",
+        "ipFamilies": [
+          "IPv4"
+        ],
+        "ipFamilyPolicy": "SingleStack",
+        "ports": [
+          {
+            "appProtocol": "http2",
+            "name": "grpc-ext-proc",
+            "port": 9002,
+            "protocol": "TCP",
+            "targetPort": 9002
+          }
+        ],
+        "selector": {
+          "app": "optimized-a7558-epp"
+        },
+        "sessionAffinity": "None",
+        "type": "ClusterIP"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+      "kind": "AIGatewayRoute",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "finalizers": [
+          "aigateway.envoyproxy.io/finalizer"
+        ],
+        "generation": 1,
+        "name": "audience",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "14214",
+        "uid": "66f19122-549b-4991-b926-f3fd199df6b9"
+      },
+      "spec": {
+        "llmRequestCosts": [
+          {
+            "metadataKey": "llm_input_token",
+            "type": "InputToken"
+          },
+          {
+            "metadataKey": "llm_output_token",
+            "type": "OutputToken"
+          },
+          {
+            "metadataKey": "llm_total_token",
+            "type": "TotalToken"
+          }
+        ],
+        "parentRefs": [
+          {
+            "group": "gateway.networking.k8s.io",
+            "kind": "Gateway",
+            "name": "inference-gateway",
+            "namespace": "modelplane-system",
+            "sectionName": "http"
+          }
+        ],
+        "rules": [
+          {
+            "backendRefs": [
+              {
+                "modelNameOverride": "ml-team/audience",
+                "name": "audience-public-7d752-audience-4cd7f-87886",
+                "priority": 0,
+                "weight": 1
+              }
+            ],
+            "matches": [
+              {
+                "headers": [
+                  {
+                    "name": "x-ai-eg-model",
+                    "type": "Exact",
+                    "value": "ml-team/audience"
+                  }
+                ]
+              }
+            ],
+            "modelsOwnedBy": "ml-team",
+            "streamIdleTimeout": "180s",
+            "timeouts": {
+              "request": "300s"
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:55:14Z",
+            "message": "AI Gateway Route reconciled successfully",
+            "reason": "ReconciliationSucceeded",
+            "status": "True",
+            "type": "Accepted"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+      "kind": "AIGatewayRoute",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "finalizers": [
+          "aigateway.envoyproxy.io/finalizer"
+        ],
+        "generation": 1,
+        "name": "optimized",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "11762",
+        "uid": "3398f653-5431-410d-bf03-9dc96e07bad8"
+      },
+      "spec": {
+        "llmRequestCosts": [
+          {
+            "metadataKey": "llm_input_token",
+            "type": "InputToken"
+          },
+          {
+            "metadataKey": "llm_output_token",
+            "type": "OutputToken"
+          },
+          {
+            "metadataKey": "llm_total_token",
+            "type": "TotalToken"
+          }
+        ],
+        "parentRefs": [
+          {
+            "group": "gateway.networking.k8s.io",
+            "kind": "Gateway",
+            "name": "inference-gateway",
+            "namespace": "modelplane-system",
+            "sectionName": "http"
+          }
+        ],
+        "rules": [
+          {
+            "backendRefs": [
+              {
+                "modelNameOverride": "ml-team/optimized",
+                "name": "optimized-public-b9fe2-optimized-a7558-ca8aa",
+                "priority": 0,
+                "weight": 1
+              }
+            ],
+            "matches": [
+              {
+                "headers": [
+                  {
+                    "name": "x-ai-eg-model",
+                    "type": "Exact",
+                    "value": "ml-team/optimized"
+                  }
+                ]
+              }
+            ],
+            "modelsOwnedBy": "ml-team",
+            "streamIdleTimeout": "180s",
+            "timeouts": {
+              "request": "300s"
+            }
+          }
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:50:45Z",
+            "message": "AI Gateway Route reconciled successfully",
+            "reason": "ReconciliationSucceeded",
+            "status": "True",
+            "type": "Accepted"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+      "kind": "AIServiceBackend",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "finalizers": [
+          "aigateway.envoyproxy.io/finalizer"
+        ],
+        "generation": 1,
+        "name": "audience-public-7d752-audience-4cd7f-87886",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "14183",
+        "uid": "5b860e20-21dc-45c3-828e-8590c963ea2b"
+      },
+      "spec": {
+        "backendRef": {
+          "group": "gateway.envoyproxy.io",
+          "kind": "Backend",
+          "name": "audience-public-7d752-audience-4cd7f-87886"
+        },
+        "schema": {
+          "name": "OpenAI",
+          "prefix": "/ml-team/audience-4cd7f/v1"
+        }
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:55:14Z",
+            "message": "AIServiceBackend reconciled successfully",
+            "reason": "ReconciliationSucceeded",
+            "status": "True",
+            "type": "Accepted"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+      "kind": "AIServiceBackend",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "finalizers": [
+          "aigateway.envoyproxy.io/finalizer"
+        ],
+        "generation": 1,
+        "name": "optimized-public-b9fe2-optimized-a7558-ca8aa",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "11747",
+        "uid": "f4e7f54b-092a-4614-a110-812624a6f392"
+      },
+      "spec": {
+        "backendRef": {
+          "group": "gateway.envoyproxy.io",
+          "kind": "Backend",
+          "name": "optimized-public-b9fe2-optimized-a7558-ca8aa"
+        },
+        "schema": {
+          "name": "OpenAI",
+          "prefix": "/ml-team/optimized-a7558/v1"
+        }
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:50:44Z",
+            "message": "AIServiceBackend reconciled successfully",
+            "reason": "ReconciliationSucceeded",
+            "status": "True",
+            "type": "Accepted"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generation": 1,
+        "name": "audience-4cd7f-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12125",
+        "uid": "8ec23656-702e-4016-a9bc-88c80910fafc"
+      },
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "app": "audience-4cd7f-epp"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "modelplane.ai/epp-config-checksum": "20c1dfea3fc4ad41e335cc74edbeb1e8689a607bc4bf7395849ffd2cf0bb2ae1"
+            },
+            "labels": {
+              "app": "audience-4cd7f-epp",
+              "modelplane.ai/deployment": "audience",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "picker"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--pool-name=audience-4cd7f-pool",
+                  "--pool-namespace=mp-ml-team-51733",
+                  "--pool-group=inference.networking.k8s.io",
+                  "--config-file=/config/epp-config.yaml",
+                  "--grpc-port=9002",
+                  "--metrics-port=9090",
+                  "--metrics-endpoint-auth=false"
+                ],
+                "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "epp",
+                "ports": [
+                  {
+                    "containerPort": 9002,
+                    "name": "grpc",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9003,
+                    "name": "grpc-health",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9090,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/config",
+                    "name": "config"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "serviceAccount": "audience-4cd7f-epp",
+            "serviceAccountName": "audience-4cd7f-epp",
+            "terminationGracePeriodSeconds": 30,
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "audience-4cd7f-epp"
+                },
+                "name": "config"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "lastUpdateTime": "2026-11-02T16:51:06Z",
+            "message": "Deployment has minimum availability.",
+            "reason": "MinimumReplicasAvailable",
+            "status": "True",
+            "type": "Available"
+          },
+          {
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "lastUpdateTime": "2026-11-02T16:51:06Z",
+            "message": "ReplicaSet \"audience-4cd7f-epp-86c9c6c868\" has successfully progressed.",
+            "reason": "NewReplicaSetAvailable",
+            "status": "True",
+            "type": "Progressing"
+          }
+        ],
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generation": 1,
+        "name": "audience-4cd7f-qwen3-8b-303a3",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "14083",
+        "uid": "9c98d9fe-8c2a-4a96-b126-f0c5f30565a5"
+      },
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 2,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "modelplane.ai/deployment": "audience",
+              "modelplane.ai/engine": "qwen3-8b",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "Standalone",
+              "modelplane.ai/serving": "audience-4cd7f",
+              "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--model=Qwen/Qwen3-8B-FP8",
+                  "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+                  "--max-model-len=8192",
+                  "--gpu-memory-utilization=0.90",
+                  "--default-chat-template-kwargs={\"enable_thinking\": false}"
+                ],
+                "env": [
+                  {
+                    "name": "MODELPLANE_SERVED_MODEL_NAME",
+                    "value": "ml-team/audience"
+                  }
+                ],
+                "image": "vllm/vllm-openai:v0.27.1",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "engine",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "claims": [
+                    {
+                      "name": "devices"
+                    }
+                  ]
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "nodeSelector": {
+              "modelplane.ai/pool": "copies"
+            },
+            "resourceClaims": [
+              {
+                "name": "devices",
+                "resourceClaimTemplateName": "audience-4cd7f-qwen3-8b-standalone-devices-3cc3b"
+              }
+            ],
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "terminationGracePeriodSeconds": 30,
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/gpu",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {
+                  "medium": "Memory"
+                },
+                "name": "dshm"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 2,
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:55:02Z",
+            "lastUpdateTime": "2026-11-02T16:55:02Z",
+            "message": "Deployment has minimum availability.",
+            "reason": "MinimumReplicasAvailable",
+            "status": "True",
+            "type": "Available"
+          },
+          {
+            "lastTransitionTime": "2026-11-02T16:51:06Z",
+            "lastUpdateTime": "2026-11-02T16:55:02Z",
+            "message": "ReplicaSet \"audience-4cd7f-qwen3-8b-303a3-5975655f47\" has successfully progressed.",
+            "reason": "NewReplicaSetAvailable",
+            "status": "True",
+            "type": "Progressing"
+          }
+        ],
+        "observedGeneration": 1,
+        "readyReplicas": 2,
+        "replicas": 2,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 2
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generation": 1,
+        "name": "optimized-a7558-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9177",
+        "uid": "c2b3213e-e74c-47b9-9bc3-b7a9f00112dd"
+      },
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "app": "optimized-a7558-epp"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "modelplane.ai/epp-config-checksum": "20c1dfea3fc4ad41e335cc74edbeb1e8689a607bc4bf7395849ffd2cf0bb2ae1"
+            },
+            "labels": {
+              "app": "optimized-a7558-epp",
+              "modelplane.ai/deployment": "optimized",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "picker"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--pool-name=optimized-a7558-pool",
+                  "--pool-namespace=mp-ml-team-51733",
+                  "--pool-group=inference.networking.k8s.io",
+                  "--config-file=/config/epp-config.yaml",
+                  "--grpc-port=9002",
+                  "--metrics-port=9090",
+                  "--metrics-endpoint-auth=false"
+                ],
+                "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "epp",
+                "ports": [
+                  {
+                    "containerPort": 9002,
+                    "name": "grpc",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9003,
+                    "name": "grpc-health",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9090,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/config",
+                    "name": "config"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "serviceAccount": "optimized-a7558-epp",
+            "serviceAccountName": "optimized-a7558-epp",
+            "terminationGracePeriodSeconds": 30,
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "optimized-a7558-epp"
+                },
+                "name": "config"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:45:46Z",
+            "lastUpdateTime": "2026-11-02T16:45:46Z",
+            "message": "Deployment has minimum availability.",
+            "reason": "MinimumReplicasAvailable",
+            "status": "True",
+            "type": "Available"
+          },
+          {
+            "lastTransitionTime": "2026-11-02T16:45:44Z",
+            "lastUpdateTime": "2026-11-02T16:45:46Z",
+            "message": "ReplicaSet \"optimized-a7558-epp-76dc67c644\" has successfully progressed.",
+            "reason": "NewReplicaSetAvailable",
+            "status": "True",
+            "type": "Progressing"
+          }
+        ],
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generation": 1,
+        "name": "optimized-a7558-qwen3-8b-3a00f",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "11625",
+        "uid": "526ac2b4-3bec-4944-a3ce-73f05f6509d6"
+      },
+      "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 1,
+        "revisionHistoryLimit": 10,
+        "selector": {
+          "matchLabels": {
+            "modelplane.ai/workload": "optimized-a7558-qwen3-8b-3a00f"
+          }
+        },
+        "strategy": {
+          "rollingUpdate": {
+            "maxSurge": "25%",
+            "maxUnavailable": "25%"
+          },
+          "type": "RollingUpdate"
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "modelplane.ai/deployment": "optimized",
+              "modelplane.ai/engine": "qwen3-8b",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "Standalone",
+              "modelplane.ai/serving": "optimized-a7558",
+              "modelplane.ai/workload": "optimized-a7558-qwen3-8b-3a00f"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--model=Qwen/Qwen3-8B-FP8",
+                  "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+                  "--max-model-len=8192",
+                  "--gpu-memory-utilization=0.85",
+                  "--default-chat-template-kwargs={\"enable_thinking\": false}",
+                  "--tensor-parallel-size=2"
+                ],
+                "env": [
+                  {
+                    "name": "MODELPLANE_SERVED_MODEL_NAME",
+                    "value": "ml-team/optimized"
+                  }
+                ],
+                "image": "vllm/vllm-openai:v0.27.1",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "engine",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "claims": [
+                    {
+                      "name": "devices"
+                    }
+                  ]
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "nodeSelector": {
+              "modelplane.ai/pool": "one-engine"
+            },
+            "resourceClaims": [
+              {
+                "name": "devices",
+                "resourceClaimTemplateName": "optimized-a7558-qwen3-8b-standalone-devices-bd3dc"
+              }
+            ],
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "terminationGracePeriodSeconds": 30,
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/gpu",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {
+                  "medium": "Memory"
+                },
+                "name": "dshm"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:50:33Z",
+            "lastUpdateTime": "2026-11-02T16:50:33Z",
+            "message": "Deployment has minimum availability.",
+            "reason": "MinimumReplicasAvailable",
+            "status": "True",
+            "type": "Available"
+          },
+          {
+            "lastTransitionTime": "2026-11-02T16:45:44Z",
+            "lastUpdateTime": "2026-11-02T16:50:33Z",
+            "message": "ReplicaSet \"optimized-a7558-qwen3-8b-3a00f-84f96c895d\" has successfully progressed.",
+            "reason": "NewReplicaSetAvailable",
+            "status": "True",
+            "type": "Progressing"
+          }
+        ],
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0,
+        "updatedReplicas": 1
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "ReplicaSet",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/desired-replicas": "1",
+          "deployment.kubernetes.io/max-replicas": "2",
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generation": 1,
+        "labels": {
+          "app": "audience-4cd7f-epp",
+          "modelplane.ai/deployment": "audience",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "picker",
+          "pod-template-hash": "86c9c6c868"
+        },
+        "name": "audience-4cd7f-epp-86c9c6c868",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Deployment",
+            "name": "audience-4cd7f-epp",
+            "uid": "8ec23656-702e-4016-a9bc-88c80910fafc"
+          }
+        ],
+        "resourceVersion": "12124",
+        "uid": "e77fcb2b-0746-42b6-b4d4-b56f6b6bcf75"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "audience-4cd7f-epp",
+            "pod-template-hash": "86c9c6c868"
+          }
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "modelplane.ai/epp-config-checksum": "20c1dfea3fc4ad41e335cc74edbeb1e8689a607bc4bf7395849ffd2cf0bb2ae1"
+            },
+            "labels": {
+              "app": "audience-4cd7f-epp",
+              "modelplane.ai/deployment": "audience",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "picker",
+              "pod-template-hash": "86c9c6c868"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--pool-name=audience-4cd7f-pool",
+                  "--pool-namespace=mp-ml-team-51733",
+                  "--pool-group=inference.networking.k8s.io",
+                  "--config-file=/config/epp-config.yaml",
+                  "--grpc-port=9002",
+                  "--metrics-port=9090",
+                  "--metrics-endpoint-auth=false"
+                ],
+                "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "epp",
+                "ports": [
+                  {
+                    "containerPort": 9002,
+                    "name": "grpc",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9003,
+                    "name": "grpc-health",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9090,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/config",
+                    "name": "config"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "serviceAccount": "audience-4cd7f-epp",
+            "serviceAccountName": "audience-4cd7f-epp",
+            "terminationGracePeriodSeconds": 30,
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "audience-4cd7f-epp"
+                },
+                "name": "config"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "fullyLabeledReplicas": 1,
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "ReplicaSet",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/desired-replicas": "2",
+          "deployment.kubernetes.io/max-replicas": "3",
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generation": 1,
+        "labels": {
+          "modelplane.ai/deployment": "audience",
+          "modelplane.ai/engine": "qwen3-8b",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "Standalone",
+          "modelplane.ai/serving": "audience-4cd7f",
+          "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3",
+          "pod-template-hash": "5975655f47"
+        },
+        "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Deployment",
+            "name": "audience-4cd7f-qwen3-8b-303a3",
+            "uid": "9c98d9fe-8c2a-4a96-b126-f0c5f30565a5"
+          }
+        ],
+        "resourceVersion": "14082",
+        "uid": "cc471179-add6-4d3e-99e9-e03831ca340b"
+      },
+      "spec": {
+        "replicas": 2,
+        "selector": {
+          "matchLabels": {
+            "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3",
+            "pod-template-hash": "5975655f47"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "modelplane.ai/deployment": "audience",
+              "modelplane.ai/engine": "qwen3-8b",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "Standalone",
+              "modelplane.ai/serving": "audience-4cd7f",
+              "modelplane.ai/workload": "audience-4cd7f-qwen3-8b-303a3",
+              "pod-template-hash": "5975655f47"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--model=Qwen/Qwen3-8B-FP8",
+                  "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+                  "--max-model-len=8192",
+                  "--gpu-memory-utilization=0.90",
+                  "--default-chat-template-kwargs={\"enable_thinking\": false}"
+                ],
+                "env": [
+                  {
+                    "name": "MODELPLANE_SERVED_MODEL_NAME",
+                    "value": "ml-team/audience"
+                  }
+                ],
+                "image": "vllm/vllm-openai:v0.27.1",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "engine",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "claims": [
+                    {
+                      "name": "devices"
+                    }
+                  ]
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "nodeSelector": {
+              "modelplane.ai/pool": "copies"
+            },
+            "resourceClaims": [
+              {
+                "name": "devices",
+                "resourceClaimTemplateName": "audience-4cd7f-qwen3-8b-standalone-devices-3cc3b"
+              }
+            ],
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "terminationGracePeriodSeconds": 30,
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/gpu",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {
+                  "medium": "Memory"
+                },
+                "name": "dshm"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 2,
+        "fullyLabeledReplicas": 2,
+        "observedGeneration": 1,
+        "readyReplicas": 2,
+        "replicas": 2,
+        "terminatingReplicas": 0
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "ReplicaSet",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/desired-replicas": "1",
+          "deployment.kubernetes.io/max-replicas": "2",
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generation": 1,
+        "labels": {
+          "app": "optimized-a7558-epp",
+          "modelplane.ai/deployment": "optimized",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "picker",
+          "pod-template-hash": "76dc67c644"
+        },
+        "name": "optimized-a7558-epp-76dc67c644",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Deployment",
+            "name": "optimized-a7558-epp",
+            "uid": "c2b3213e-e74c-47b9-9bc3-b7a9f00112dd"
+          }
+        ],
+        "resourceVersion": "9176",
+        "uid": "6f4d6a33-0220-4b33-98d3-4e778d434554"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "optimized-a7558-epp",
+            "pod-template-hash": "76dc67c644"
+          }
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "modelplane.ai/epp-config-checksum": "20c1dfea3fc4ad41e335cc74edbeb1e8689a607bc4bf7395849ffd2cf0bb2ae1"
+            },
+            "labels": {
+              "app": "optimized-a7558-epp",
+              "modelplane.ai/deployment": "optimized",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "picker",
+              "pod-template-hash": "76dc67c644"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--pool-name=optimized-a7558-pool",
+                  "--pool-namespace=mp-ml-team-51733",
+                  "--pool-group=inference.networking.k8s.io",
+                  "--config-file=/config/epp-config.yaml",
+                  "--grpc-port=9002",
+                  "--metrics-port=9090",
+                  "--metrics-endpoint-auth=false"
+                ],
+                "image": "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "epp",
+                "ports": [
+                  {
+                    "containerPort": 9002,
+                    "name": "grpc",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9003,
+                    "name": "grpc-health",
+                    "protocol": "TCP"
+                  },
+                  {
+                    "containerPort": 9090,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {},
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/config",
+                    "name": "config"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "serviceAccount": "optimized-a7558-epp",
+            "serviceAccountName": "optimized-a7558-epp",
+            "terminationGracePeriodSeconds": 30,
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 420,
+                  "name": "optimized-a7558-epp"
+                },
+                "name": "config"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "fullyLabeledReplicas": 1,
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "ReplicaSet",
+      "metadata": {
+        "annotations": {
+          "deployment.kubernetes.io/desired-replicas": "1",
+          "deployment.kubernetes.io/max-replicas": "2",
+          "deployment.kubernetes.io/revision": "1"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generation": 1,
+        "labels": {
+          "modelplane.ai/deployment": "optimized",
+          "modelplane.ai/engine": "qwen3-8b",
+          "modelplane.ai/replica": "0",
+          "modelplane.ai/role": "Standalone",
+          "modelplane.ai/serving": "optimized-a7558",
+          "modelplane.ai/workload": "optimized-a7558-qwen3-8b-3a00f",
+          "pod-template-hash": "84f96c895d"
+        },
+        "name": "optimized-a7558-qwen3-8b-3a00f-84f96c895d",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "apps/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Deployment",
+            "name": "optimized-a7558-qwen3-8b-3a00f",
+            "uid": "526ac2b4-3bec-4944-a3ce-73f05f6509d6"
+          }
+        ],
+        "resourceVersion": "11624",
+        "uid": "c9b32468-9c7f-417b-b1b7-a600b7beaaa5"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "modelplane.ai/workload": "optimized-a7558-qwen3-8b-3a00f",
+            "pod-template-hash": "84f96c895d"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "modelplane.ai/deployment": "optimized",
+              "modelplane.ai/engine": "qwen3-8b",
+              "modelplane.ai/replica": "0",
+              "modelplane.ai/role": "Standalone",
+              "modelplane.ai/serving": "optimized-a7558",
+              "modelplane.ai/workload": "optimized-a7558-qwen3-8b-3a00f",
+              "pod-template-hash": "84f96c895d"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "args": [
+                  "--model=Qwen/Qwen3-8B-FP8",
+                  "--served-model-name=$(MODELPLANE_SERVED_MODEL_NAME)",
+                  "--max-model-len=8192",
+                  "--gpu-memory-utilization=0.85",
+                  "--default-chat-template-kwargs={\"enable_thinking\": false}",
+                  "--tensor-parallel-size=2"
+                ],
+                "env": [
+                  {
+                    "name": "MODELPLANE_SERVED_MODEL_NAME",
+                    "value": "ml-team/optimized"
+                  }
+                ],
+                "image": "vllm/vllm-openai:v0.27.1",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "engine",
+                "ports": [
+                  {
+                    "containerPort": 8000,
+                    "name": "http",
+                    "protocol": "TCP"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 3,
+                  "httpGet": {
+                    "path": "/health",
+                    "port": 8000,
+                    "scheme": "HTTP"
+                  },
+                  "initialDelaySeconds": 30,
+                  "periodSeconds": 10,
+                  "successThreshold": 1,
+                  "timeoutSeconds": 5
+                },
+                "resources": {
+                  "claims": [
+                    {
+                      "name": "devices"
+                    }
+                  ]
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/dev/shm",
+                    "name": "dshm"
+                  }
+                ]
+              }
+            ],
+            "dnsPolicy": "ClusterFirst",
+            "nodeSelector": {
+              "modelplane.ai/pool": "one-engine"
+            },
+            "resourceClaims": [
+              {
+                "name": "devices",
+                "resourceClaimTemplateName": "optimized-a7558-qwen3-8b-standalone-devices-bd3dc"
+              }
+            ],
+            "restartPolicy": "Always",
+            "schedulerName": "default-scheduler",
+            "securityContext": {},
+            "terminationGracePeriodSeconds": 30,
+            "tolerations": [
+              {
+                "effect": "NoSchedule",
+                "key": "nvidia.com/gpu",
+                "operator": "Exists"
+              }
+            ],
+            "volumes": [
+              {
+                "emptyDir": {
+                  "medium": "Memory"
+                },
+                "name": "dshm"
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "availableReplicas": 1,
+        "fullyLabeledReplicas": 1,
+        "observedGeneration": 1,
+        "readyReplicas": 1,
+        "replicas": 1,
+        "terminatingReplicas": 0
+      }
+    },
+    {
+      "apiVersion": "cert-manager.io/v1",
+      "kind": "CertificateRequest",
+      "metadata": {
+        "annotations": {
+          "cert-manager.io/certificate-name": "audience-public-7d752-client-cfb42",
+          "cert-manager.io/certificate-revision": "1",
+          "cert-manager.io/private-key-secret-name": "audience-public-7d752-client-cfb42-vb6vl"
+        },
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "generation": 1,
+        "name": "audience-public-7d752-client-cfb42-1",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "cert-manager.io/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Certificate",
+            "name": "audience-public-7d752-client-cfb42",
+            "uid": "656429bb-0aca-46ba-9bf2-812d9f847ce7"
+          }
+        ],
+        "resourceVersion": "14211",
+        "uid": "3454b49c-7018-4e23-899a-c05adfc9fd0d"
+      },
+      "spec": {
+        "duration": "2160h0m0s",
+        "extra": {
+          "authentication.kubernetes.io/credential-id": [
+            "JTI=9b84326a-05a3-4a72-9e12-a4cac7a51415"
+          ],
+          "authentication.kubernetes.io/node-name": [
+            "ip-10-0-77-65.us-east-2.compute.internal"
+          ],
+          "authentication.kubernetes.io/node-uid": [
+            "1cec2519-b93d-464c-bacd-dbd526827030"
+          ],
+          "authentication.kubernetes.io/pod-name": [
+            "cert-manager-6779b7b57b-ds9rk"
+          ],
+          "authentication.kubernetes.io/pod-uid": [
+            "b02413fa-7fe6-4a5e-bed3-d90c821db861"
+          ]
+        },
+        "groups": [
+          "system:serviceaccounts",
+          "system:serviceaccounts:cert-manager",
+          "system:authenticated"
+        ],
+        "issuerRef": {
+          "group": "cert-manager.io",
+          "kind": "ClusterIssuer",
+          "name": "inference-gateway-ca"
+        },
+        "request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkZEQ0J1d0lCQURBak1TRXdId1lEVlFRREV4aHBibVpsY21WdVkyVXRaMkYwWlhkaGVTMXdkV0pzYVdNdwpXVEFUQmdjcWhrak9QUUlCQmdncWhrak9QUU1CQndOQ0FBUUJxK1U4S05MWUIzbG94SmZaa1BxQVNUOW5NZ0QxCmZDTG4ya1pUUVVDdjZUOWprbE51SUZpSUNUTzdQb2c4SWoxMHdPb09NOVArQjVJM1JCb0MrTW1yb0RZd05BWUoKS29aSWh2Y05BUWtPTVNjd0pUQU9CZ05WSFE4QkFmOEVCQU1DQmFBd0V3WURWUjBsQkF3d0NnWUlLd1lCQlFVSApBd0l3Q2dZSUtvWkl6ajBFQXdJRFNBQXdSUUloQUxUdzJPZXRXdklEemRUUFZRWm1ESStOTUFVeDRuR3RlcjNZCmVOTHNCaXZPQWlBWDQvNDM2SVdJeFpkZE9NM2dGUExPY2FuU0hjMGF2RFNtQ2lHTG83MFhaZz09Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=",
+        "uid": "75704514-9e6b-4d15-ad66-81ccf8c54ac2",
+        "usages": [
+          "client auth",
+          "digital signature",
+          "key encipherment"
+        ],
+        "username": "system:serviceaccount:cert-manager:cert-manager"
+      },
+      "status": {
+        "ca": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJwRENDQVVxZ0F3SUJBZ0lVQkNPRmVGWnFlcHZ6Wm50YzZiUGpLZ3FzdkNFd0NnWUlLb1pJemowRUF3SXcKTURFdU1Dd0dBMVVFQXhNbFRXOWtaV3h3YkdGdVpTQkpibVpsY21WdVkyVkhZWFJsZDJGNUlFTkJJSEIxWW14cApZekFlRncweU5qRXhNREl4TmpRd01UbGFGdzB6TmpFd016QXhOalF3TVRsYU1EQXhMakFzQmdOVkJBTVRKVTF2ClpHVnNjR3hoYm1VZ1NXNW1aWEpsYm1ObFIyRjBaWGRoZVNCRFFTQndkV0pzYVdNd1dUQVRCZ2NxaGtqT1BRSUIKQmdncWhrak9QUU1CQndOQ0FBUkljaXdyeE9CS2pNNFhYRWdhVWV0ZGF2YW5MZFJsMlJmelRqRXlEOHQrZ3l1OQprRm9jd1JFU3lxSjA3MkJ2dzYrV1hPdGEwN2ZSbFRWV0tMd1BHN0pLbzBJd1FEQU9CZ05WSFE4QkFmOEVCQU1DCkFxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QWRCZ05WSFE0RUZnUVVLNlhCdkdDWkUrSlR2NENKZ2FFSWt3UysKa1l3d0NnWUlLb1pJemowRUF3SURTQUF3UlFJZ0UyM3E2VXdzR3MzL1RPWWxqaWMwbjQ5WVhNRVIyTzR4N3QrZQpRZHBET0RnQ0lRRGkyS3lrYzJ1MVNkS1hrSHJPZjNEQXR4N3I2dENORDFTOXFGNWc0YmliS2c9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",
+        "certificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJyRENDQVZHZ0F3SUJBZ0lVWWhpQmM2RjN0bmRKdzlXT2ZvRTYvU1J3L1pJd0NnWUlLb1pJemowRUF3SXcKTURFdU1Dd0dBMVVFQXhNbFRXOWtaV3h3YkdGdVpTQkpibVpsY21WdVkyVkhZWFJsZDJGNUlFTkJJSEIxWW14cApZekFlRncweU5qRXhNREl4TmpVMU1UUmFGdzB5TnpBeE16RXhOalUxTVRSYU1DTXhJVEFmQmdOVkJBTVRHR2x1ClptVnlaVzVqWlMxbllYUmxkMkY1TFhCMVlteHBZekJaTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEEwSUEKQkFHcjVUd28wdGdIZVdqRWw5bVErb0JKUDJjeUFQVjhJdWZhUmxOQlFLL3BQMk9TVTI0Z1dJZ0pNN3MraUR3aQpQWFRBNmc0ejAvNEhramRFR2dMNHlhdWpWakJVTUE0R0ExVWREd0VCL3dRRUF3SUZvREFUQmdOVkhTVUVEREFLCkJnZ3JCZ0VGQlFjREFqQU1CZ05WSFJNQkFmOEVBakFBTUI4R0ExVWRJd1FZTUJhQUZDdWx3YnhnbVJQaVU3K0EKaVlHaENKTUV2cEdNTUFvR0NDcUdTTTQ5QkFNQ0Ewa0FNRVlDSVFEVXdJZjRDbjhVcWFqMWUwa0pDazBzRlI4aQpCR29vR0dCR1JqcWpzU1pXNUFJaEFLL1kwampXNTRBZk15bm01SXNnQjR4b2ZYTExucVZ1U3BlemZxdmhJaHM3Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K",
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:55:14Z",
+            "message": "Certificate request has been approved by cert-manager.io",
+            "reason": "cert-manager.io",
+            "status": "True",
+            "type": "Approved"
+          },
+          {
+            "lastTransitionTime": "2026-11-02T16:55:14Z",
+            "message": "Certificate fetched from issuer successfully",
+            "reason": "Issued",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "cert-manager.io/v1",
+      "kind": "CertificateRequest",
+      "metadata": {
+        "annotations": {
+          "cert-manager.io/certificate-name": "optimized-public-b9fe2-client-d6b30",
+          "cert-manager.io/certificate-revision": "1",
+          "cert-manager.io/private-key-secret-name": "optimized-public-b9fe2-client-d6b30-smhpf"
+        },
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "generation": 1,
+        "name": "optimized-public-b9fe2-client-d6b30-1",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "cert-manager.io/v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Certificate",
+            "name": "optimized-public-b9fe2-client-d6b30",
+            "uid": "453735ab-489e-40b7-bc27-ab875a16cdf9"
+          }
+        ],
+        "resourceVersion": "11773",
+        "uid": "d02653d3-51b9-40cb-86bd-f57f133d6e73"
+      },
+      "spec": {
+        "duration": "2160h0m0s",
+        "extra": {
+          "authentication.kubernetes.io/credential-id": [
+            "JTI=9b84326a-05a3-4a72-9e12-a4cac7a51415"
+          ],
+          "authentication.kubernetes.io/node-name": [
+            "ip-10-0-77-65.us-east-2.compute.internal"
+          ],
+          "authentication.kubernetes.io/node-uid": [
+            "1cec2519-b93d-464c-bacd-dbd526827030"
+          ],
+          "authentication.kubernetes.io/pod-name": [
+            "cert-manager-6779b7b57b-ds9rk"
+          ],
+          "authentication.kubernetes.io/pod-uid": [
+            "b02413fa-7fe6-4a5e-bed3-d90c821db861"
+          ]
+        },
+        "groups": [
+          "system:serviceaccounts",
+          "system:serviceaccounts:cert-manager",
+          "system:authenticated"
+        ],
+        "issuerRef": {
+          "group": "cert-manager.io",
+          "kind": "ClusterIssuer",
+          "name": "inference-gateway-ca"
+        },
+        "request": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQkV6Q0J1d0lCQURBak1TRXdId1lEVlFRREV4aHBibVpsY21WdVkyVXRaMkYwWlhkaGVTMXdkV0pzYVdNdwpXVEFUQmdjcWhrak9QUUlCQmdncWhrak9QUU1CQndOQ0FBUno0MWloZHVEempIWXZCbE1wbjYyWW9ES0c0TGNJClFBNXNjbk4vQ1hhZmZwbStiNTM1akR5WVlxOVJ0ZUxDY3puUFc1Q0szNDdaakZBeVEwRitOK21Ub0RZd05BWUoKS29aSWh2Y05BUWtPTVNjd0pUQU9CZ05WSFE4QkFmOEVCQU1DQmFBd0V3WURWUjBsQkF3d0NnWUlLd1lCQlFVSApBd0l3Q2dZSUtvWkl6ajBFQXdJRFJ3QXdSQUlnUTVqQXcyS2E1V0VXS0VMNkg5dUoyZTVMWStCN0xWdE9IaDVNCjUvbzVyOTBDSURFdEVkTDRMM3ZzdXFLYURqWTJkUENCZG1qeExKSWoxRS9NQ1oxVU5Pa2YKLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0tCg==",
+        "uid": "75704514-9e6b-4d15-ad66-81ccf8c54ac2",
+        "usages": [
+          "client auth",
+          "digital signature",
+          "key encipherment"
+        ],
+        "username": "system:serviceaccount:cert-manager:cert-manager"
+      },
+      "status": {
+        "ca": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJwRENDQVVxZ0F3SUJBZ0lVQkNPRmVGWnFlcHZ6Wm50YzZiUGpLZ3FzdkNFd0NnWUlLb1pJemowRUF3SXcKTURFdU1Dd0dBMVVFQXhNbFRXOWtaV3h3YkdGdVpTQkpibVpsY21WdVkyVkhZWFJsZDJGNUlFTkJJSEIxWW14cApZekFlRncweU5qRXhNREl4TmpRd01UbGFGdzB6TmpFd016QXhOalF3TVRsYU1EQXhMakFzQmdOVkJBTVRKVTF2ClpHVnNjR3hoYm1VZ1NXNW1aWEpsYm1ObFIyRjBaWGRoZVNCRFFTQndkV0pzYVdNd1dUQVRCZ2NxaGtqT1BRSUIKQmdncWhrak9QUU1CQndOQ0FBUkljaXdyeE9CS2pNNFhYRWdhVWV0ZGF2YW5MZFJsMlJmelRqRXlEOHQrZ3l1OQprRm9jd1JFU3lxSjA3MkJ2dzYrV1hPdGEwN2ZSbFRWV0tMd1BHN0pLbzBJd1FEQU9CZ05WSFE4QkFmOEVCQU1DCkFxUXdEd1lEVlIwVEFRSC9CQVV3QXdFQi96QWRCZ05WSFE0RUZnUVVLNlhCdkdDWkUrSlR2NENKZ2FFSWt3UysKa1l3d0NnWUlLb1pJemowRUF3SURTQUF3UlFJZ0UyM3E2VXdzR3MzL1RPWWxqaWMwbjQ5WVhNRVIyTzR4N3QrZQpRZHBET0RnQ0lRRGkyS3lrYzJ1MVNkS1hrSHJPZjNEQXR4N3I2dENORDFTOXFGNWc0YmliS2c9PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",
+        "certificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJyRENDQVZHZ0F3SUJBZ0lVV2FsSlg2THRENVVaL042MVh1Q0t0QzBQellrd0NnWUlLb1pJemowRUF3SXcKTURFdU1Dd0dBMVVFQXhNbFRXOWtaV3h3YkdGdVpTQkpibVpsY21WdVkyVkhZWFJsZDJGNUlFTkJJSEIxWW14cApZekFlRncweU5qRXhNREl4TmpVd05EVmFGdzB5TnpBeE16RXhOalV3TkRWYU1DTXhJVEFmQmdOVkJBTVRHR2x1ClptVnlaVzVqWlMxbllYUmxkMkY1TFhCMVlteHBZekJaTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEEwSUEKQkhQaldLRjI0UE9NZGk4R1V5bWZyWmlnTW9iZ3R3aEFEbXh5YzM4SmRwOSttYjV2bmZtTVBKaGlyMUcxNHNKegpPYzlia0lyZmp0bU1VREpEUVg0MzZaT2pWakJVTUE0R0ExVWREd0VCL3dRRUF3SUZvREFUQmdOVkhTVUVEREFLCkJnZ3JCZ0VGQlFjREFqQU1CZ05WSFJNQkFmOEVBakFBTUI4R0ExVWRJd1FZTUJhQUZDdWx3YnhnbVJQaVU3K0EKaVlHaENKTUV2cEdNTUFvR0NDcUdTTTQ5QkFNQ0Ewa0FNRVlDSVFDUXJJbUhMMU93S0FwTG5xL0FWTTNKMUdZTwpKbVgzckErZ0t1Nkt3dHh3UFFJaEFOY1dFRXVCZisyS2w3dHM0cjBUWHIrbkZlVEdLRTdTSlkyVkk4Rmc0NUxyCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K",
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:50:45Z",
+            "message": "Certificate request has been approved by cert-manager.io",
+            "reason": "cert-manager.io",
+            "status": "True",
+            "type": "Approved"
+          },
+          {
+            "lastTransitionTime": "2026-11-02T16:50:45Z",
+            "message": "Certificate fetched from issuer successfully",
+            "reason": "Issued",
+            "status": "True",
+            "type": "Ready"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "cert-manager.io/v1",
+      "kind": "Certificate",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "generation": 1,
+        "name": "audience-public-7d752-client-cfb42",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "14220",
+        "uid": "656429bb-0aca-46ba-9bf2-812d9f847ce7"
+      },
+      "spec": {
+        "commonName": "inference-gateway-public",
+        "duration": "2160h",
+        "issuerRef": {
+          "group": "cert-manager.io",
+          "kind": "ClusterIssuer",
+          "name": "inference-gateway-ca"
+        },
+        "privateKey": {
+          "algorithm": "ECDSA",
+          "rotationPolicy": "Always",
+          "size": 256
+        },
+        "renewBefore": "720h",
+        "secretName": "audience-public-7d752-client-cfb42",
+        "usages": [
+          "client auth",
+          "digital signature",
+          "key encipherment"
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:55:14Z",
+            "message": "Certificate is up to date and has not expired",
+            "observedGeneration": 1,
+            "reason": "Ready",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "notAfter": "2027-01-31T16:55:14Z",
+        "notBefore": "2026-11-02T16:55:14Z",
+        "renewalTime": "2027-01-01T16:55:14Z",
+        "revision": 1
+      }
+    },
+    {
+      "apiVersion": "cert-manager.io/v1",
+      "kind": "Certificate",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "generation": 1,
+        "name": "optimized-public-b9fe2-client-d6b30",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "11785",
+        "uid": "453735ab-489e-40b7-bc27-ab875a16cdf9"
+      },
+      "spec": {
+        "commonName": "inference-gateway-public",
+        "duration": "2160h",
+        "issuerRef": {
+          "group": "cert-manager.io",
+          "kind": "ClusterIssuer",
+          "name": "inference-gateway-ca"
+        },
+        "privateKey": {
+          "algorithm": "ECDSA",
+          "rotationPolicy": "Always",
+          "size": 256
+        },
+        "renewBefore": "720h",
+        "secretName": "optimized-public-b9fe2-client-d6b30",
+        "usages": [
+          "client auth",
+          "digital signature",
+          "key encipherment"
+        ]
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:50:45Z",
+            "message": "Certificate is up to date and has not expired",
+            "observedGeneration": 1,
+            "reason": "Ready",
+            "status": "True",
+            "type": "Ready"
+          }
+        ],
+        "notAfter": "2027-01-31T16:50:45Z",
+        "notBefore": "2026-11-02T16:50:45Z",
+        "renewalTime": "2027-01-01T16:50:45Z",
+        "revision": 1
+      }
+    },
+    {
+      "addressType": "IPv4",
+      "apiVersion": "discovery.k8s.io/v1",
+      "endpoints": [
+        {
+          "addresses": [
+            "10.0.51.185"
+          ],
+          "conditions": {
+            "ready": true,
+            "serving": true,
+            "terminating": false
+          },
+          "nodeName": "ip-10-0-54-207.us-east-2.compute.internal",
+          "targetRef": {
+            "kind": "Pod",
+            "name": "audience-4cd7f-epp-86c9c6c868-4xn8q",
+            "namespace": "mp-ml-team-51733",
+            "uid": "c89e36eb-0217-4b37-902b-f642f1f0d1a3"
+          },
+          "zone": "us-east-2a"
+        }
+      ],
+      "kind": "EndpointSlice",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generateName": "audience-4cd7f-epp-",
+        "generation": 2,
+        "labels": {
+          "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+          "kubernetes.io/service-name": "audience-4cd7f-epp"
+        },
+        "name": "audience-4cd7f-epp-jrbzc",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Service",
+            "name": "audience-4cd7f-epp",
+            "uid": "e2cc4ff9-5fdf-4a40-9d56-d1d1c6b868b0"
+          }
+        ],
+        "resourceVersion": "12122",
+        "uid": "cd2bdb1f-5ebf-4fb0-9252-67ebe597c176"
+      },
+      "ports": [
+        {
+          "appProtocol": "http2",
+          "name": "grpc-ext-proc",
+          "port": 9002,
+          "protocol": "TCP"
+        }
+      ]
+    },
+    {
+      "addressType": "IPv4",
+      "apiVersion": "discovery.k8s.io/v1",
+      "endpoints": [
+        {
+          "addresses": [
+            "10.0.60.47"
+          ],
+          "conditions": {
+            "ready": true,
+            "serving": true,
+            "terminating": false
+          },
+          "nodeName": "ip-10-0-54-207.us-east-2.compute.internal",
+          "targetRef": {
+            "kind": "Pod",
+            "name": "optimized-a7558-epp-76dc67c644-sdr2b",
+            "namespace": "mp-ml-team-51733",
+            "uid": "ea971074-b4ce-428c-b837-b272379c052f"
+          },
+          "zone": "us-east-2a"
+        }
+      ],
+      "kind": "EndpointSlice",
+      "metadata": {
+        "annotations": {
+          "endpoints.kubernetes.io/last-change-trigger-time": "2026-11-02T16:45:46Z"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generateName": "optimized-a7558-epp-",
+        "generation": 2,
+        "labels": {
+          "endpointslice.kubernetes.io/managed-by": "endpointslice-controller.k8s.io",
+          "kubernetes.io/service-name": "optimized-a7558-epp"
+        },
+        "name": "optimized-a7558-epp-bsxxc",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "Service",
+            "name": "optimized-a7558-epp",
+            "uid": "9bea3fcb-13d1-4405-8c38-569faed855cd"
+          }
+        ],
+        "resourceVersion": "9175",
+        "uid": "d38e98d2-a724-46c5-b617-2160f84ff0ff"
+      },
+      "ports": [
+        {
+          "appProtocol": "http2",
+          "name": "grpc-ext-proc",
+          "port": 9002,
+          "protocol": "TCP"
+        }
+      ]
+    },
+    {
+      "apiVersion": "gateway.envoyproxy.io/v1alpha1",
+      "kind": "Backend",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "generation": 1,
+        "name": "audience-public-7d752-audience-4cd7f-87886",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "14200",
+        "uid": "b9e4a244-653e-44c7-9cfb-ca2dcbd6ab8b"
+      },
+      "spec": {
+        "endpoints": [
+          {
+            "fqdn": {
+              "hostname": "gateway-vote-850e2.modelplane-system.svc.cluster.local",
+              "port": 443
+            }
+          }
+        ],
+        "tls": {
+          "caCertificateRefs": [
+            {
+              "group": "",
+              "kind": "ConfigMap",
+              "name": "audience-public-7d752-vote-ca-2aa67"
+            }
+          ],
+          "clientCertificateRef": {
+            "group": "",
+            "kind": "Secret",
+            "name": "audience-public-7d752-client-cfb42"
+          },
+          "insecureSkipVerify": false,
+          "sni": "gateway-vote-850e2.modelplane-system.svc.cluster.local"
+        },
+        "type": "Endpoints"
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:55:14Z",
+            "message": "The Backend was accepted",
+            "observedGeneration": 1,
+            "reason": "Accepted",
+            "status": "True",
+            "type": "Accepted"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "gateway.envoyproxy.io/v1alpha1",
+      "kind": "Backend",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "generation": 1,
+        "name": "optimized-public-b9fe2-optimized-a7558-ca8aa",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "11761",
+        "uid": "67baf546-ccba-4a48-8185-d900a53239df"
+      },
+      "spec": {
+        "endpoints": [
+          {
+            "fqdn": {
+              "hostname": "gateway-vote-850e2.modelplane-system.svc.cluster.local",
+              "port": 443
+            }
+          }
+        ],
+        "tls": {
+          "caCertificateRefs": [
+            {
+              "group": "",
+              "kind": "ConfigMap",
+              "name": "optimized-public-b9fe2-vote-ca-d9c1c"
+            }
+          ],
+          "clientCertificateRef": {
+            "group": "",
+            "kind": "Secret",
+            "name": "optimized-public-b9fe2-client-d6b30"
+          },
+          "insecureSkipVerify": false,
+          "sni": "gateway-vote-850e2.modelplane-system.svc.cluster.local"
+        },
+        "type": "Endpoints"
+      },
+      "status": {
+        "conditions": [
+          {
+            "lastTransitionTime": "2026-11-02T16:50:45Z",
+            "message": "The Backend was accepted",
+            "observedGeneration": 1,
+            "reason": "Accepted",
+            "status": "True",
+            "type": "Accepted"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "gateway.envoyproxy.io/v1alpha1",
+      "kind": "HTTPRouteFilter",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "generation": 1,
+        "name": "ai-eg-host-rewrite-audience",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "AIGatewayRoute",
+            "name": "audience",
+            "uid": "66f19122-549b-4991-b926-f3fd199df6b9"
+          }
+        ],
+        "resourceVersion": "14182",
+        "uid": "dc041282-6884-42c8-962d-ced4ab87996f"
+      },
+      "spec": {
+        "urlRewrite": {
+          "hostname": {
+            "type": "Backend"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "gateway.envoyproxy.io/v1alpha1",
+      "kind": "HTTPRouteFilter",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "generation": 1,
+        "name": "ai-eg-host-rewrite-optimized",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "AIGatewayRoute",
+            "name": "optimized",
+            "uid": "3398f653-5431-410d-bf03-9dc96e07bad8"
+          }
+        ],
+        "resourceVersion": "11750",
+        "uid": "7b8a5215-0044-4f87-8c7f-4dc317ebd178"
+      },
+      "spec": {
+        "urlRewrite": {
+          "hostname": {
+            "type": "Backend"
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "gateway.envoyproxy.io/v1alpha1",
+      "kind": "HTTPRouteFilter",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "generation": 1,
+        "name": "ai-eg-route-not-found-response-audience",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "AIGatewayRoute",
+            "name": "audience",
+            "uid": "66f19122-549b-4991-b926-f3fd199df6b9"
+          }
+        ],
+        "resourceVersion": "14185",
+        "uid": "daf74bb9-c0e5-4cd9-b782-ff098c4a9dbb"
+      },
+      "spec": {
+        "directResponse": {
+          "body": {
+            "inline": "No matching route found. It is likely because the model specified in your request is not configured in the Gateway.",
+            "type": "Inline"
+          },
+          "statusCode": 404
+        }
+      }
+    },
+    {
+      "apiVersion": "gateway.envoyproxy.io/v1alpha1",
+      "kind": "HTTPRouteFilter",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "generation": 1,
+        "name": "ai-eg-route-not-found-response-optimized",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "AIGatewayRoute",
+            "name": "optimized",
+            "uid": "3398f653-5431-410d-bf03-9dc96e07bad8"
+          }
+        ],
+        "resourceVersion": "11753",
+        "uid": "79302e46-3c7c-41fc-a04c-6e3861ca314b"
+      },
+      "spec": {
+        "directResponse": {
+          "body": {
+            "inline": "No matching route found. It is likely because the model specified in your request is not configured in the Gateway.",
+            "type": "Inline"
+          },
+          "statusCode": 404
+        }
+      }
+    },
+    {
+      "apiVersion": "gateway.networking.k8s.io/v1",
+      "kind": "HTTPRoute",
+      "metadata": {
+        "annotations": {
+          "gateway.envoyproxy.io/ai-gateway-generated": "true",
+          "gateway.envoyproxy.io/backend-ref-priority": "0:audience-public-7d752-audience-4cd7f-87886:0"
+        },
+        "creationTimestamp": "2026-11-02T16:55:14Z",
+        "generation": 1,
+        "name": "audience",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "AIGatewayRoute",
+            "name": "audience",
+            "uid": "66f19122-549b-4991-b926-f3fd199df6b9"
+          }
+        ],
+        "resourceVersion": "14213",
+        "uid": "aea08284-54b5-4db3-bddf-1f4a5e65e0f5"
+      },
+      "spec": {
+        "parentRefs": [
+          {
+            "group": "gateway.networking.k8s.io",
+            "kind": "Gateway",
+            "name": "inference-gateway",
+            "namespace": "modelplane-system",
+            "sectionName": "http"
+          }
+        ],
+        "rules": [
+          {
+            "backendRefs": [
+              {
+                "group": "gateway.envoyproxy.io",
+                "kind": "Backend",
+                "name": "audience-public-7d752-audience-4cd7f-87886",
+                "weight": 1
+              }
+            ],
+            "filters": [
+              {
+                "extensionRef": {
+                  "group": "gateway.envoyproxy.io",
+                  "kind": "HTTPRouteFilter",
+                  "name": "ai-eg-host-rewrite-audience"
+                },
+                "type": "ExtensionRef"
+              }
+            ],
+            "matches": [
+              {
+                "headers": [
+                  {
+                    "name": "x-ai-eg-model",
+                    "type": "Exact",
+                    "value": "ml-team/audience"
+                  }
+                ],
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/"
+                }
+              }
+            ],
+            "timeouts": {
+              "request": "300s"
+            }
+          },
+          {
+            "filters": [
+              {
+                "extensionRef": {
+                  "group": "gateway.envoyproxy.io",
+                  "kind": "HTTPRouteFilter",
+                  "name": "ai-eg-route-not-found-response-audience"
+                },
+                "type": "ExtensionRef"
+              }
+            ],
+            "matches": [
+              {
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/"
+                }
+              }
+            ],
+            "name": "route-not-found"
+          }
+        ]
+      },
+      "status": {
+        "parents": [
+          {
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-11-02T16:55:14Z",
+                "message": "Route is accepted",
+                "observedGeneration": 1,
+                "reason": "Accepted",
+                "status": "True",
+                "type": "Accepted"
+              },
+              {
+                "lastTransitionTime": "2026-11-02T16:55:14Z",
+                "message": "Resolved all the Object references for the Route",
+                "observedGeneration": 1,
+                "reason": "ResolvedRefs",
+                "status": "True",
+                "type": "ResolvedRefs"
+              }
+            ],
+            "controllerName": "gateway.envoyproxy.io/gatewayclass-controller",
+            "parentRef": {
+              "group": "gateway.networking.k8s.io",
+              "kind": "Gateway",
+              "name": "inference-gateway",
+              "namespace": "modelplane-system",
+              "sectionName": "http"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "gateway.networking.k8s.io/v1",
+      "kind": "HTTPRoute",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generation": 1,
+        "name": "audience-4cd7f",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12076",
+        "uid": "447b5c60-7d56-4ba3-a634-5376f5621f3c"
+      },
+      "spec": {
+        "parentRefs": [
+          {
+            "group": "gateway.networking.k8s.io",
+            "kind": "Gateway",
+            "name": "cluster-gateway",
+            "namespace": "modelplane-system"
+          }
+        ],
+        "rules": [
+          {
+            "backendRefs": [
+              {
+                "group": "inference.networking.k8s.io",
+                "kind": "InferencePool",
+                "name": "audience-4cd7f-pool",
+                "weight": 1
+              }
+            ],
+            "filters": [
+              {
+                "type": "URLRewrite",
+                "urlRewrite": {
+                  "path": {
+                    "replacePrefixMatch": "/",
+                    "type": "ReplacePrefixMatch"
+                  }
+                }
+              }
+            ],
+            "matches": [
+              {
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/ml-team/audience-4cd7f/"
+                }
+              }
+            ],
+            "timeouts": {
+              "request": "0s"
+            }
+          }
+        ]
+      },
+      "status": {
+        "parents": [
+          {
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-11-02T16:51:06Z",
+                "message": "Route is accepted",
+                "observedGeneration": 1,
+                "reason": "Accepted",
+                "status": "True",
+                "type": "Accepted"
+              },
+              {
+                "lastTransitionTime": "2026-11-02T16:51:06Z",
+                "message": "Resolved all the Object references for the Route",
+                "observedGeneration": 1,
+                "reason": "ResolvedRefs",
+                "status": "True",
+                "type": "ResolvedRefs"
+              }
+            ],
+            "controllerName": "gateway.envoyproxy.io/gatewayclass-controller",
+            "parentRef": {
+              "group": "gateway.networking.k8s.io",
+              "kind": "Gateway",
+              "name": "cluster-gateway",
+              "namespace": "modelplane-system"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "gateway.networking.k8s.io/v1",
+      "kind": "HTTPRoute",
+      "metadata": {
+        "annotations": {
+          "gateway.envoyproxy.io/ai-gateway-generated": "true",
+          "gateway.envoyproxy.io/backend-ref-priority": "0:optimized-public-b9fe2-optimized-a7558-ca8aa:0"
+        },
+        "creationTimestamp": "2026-11-02T16:50:44Z",
+        "generation": 1,
+        "name": "optimized",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "aigateway.envoyproxy.io/v1beta1",
+            "blockOwnerDeletion": true,
+            "controller": true,
+            "kind": "AIGatewayRoute",
+            "name": "optimized",
+            "uid": "3398f653-5431-410d-bf03-9dc96e07bad8"
+          }
+        ],
+        "resourceVersion": "11777",
+        "uid": "565d154f-40a7-4931-9e61-135e3179690c"
+      },
+      "spec": {
+        "parentRefs": [
+          {
+            "group": "gateway.networking.k8s.io",
+            "kind": "Gateway",
+            "name": "inference-gateway",
+            "namespace": "modelplane-system",
+            "sectionName": "http"
+          }
+        ],
+        "rules": [
+          {
+            "backendRefs": [
+              {
+                "group": "gateway.envoyproxy.io",
+                "kind": "Backend",
+                "name": "optimized-public-b9fe2-optimized-a7558-ca8aa",
+                "weight": 1
+              }
+            ],
+            "filters": [
+              {
+                "extensionRef": {
+                  "group": "gateway.envoyproxy.io",
+                  "kind": "HTTPRouteFilter",
+                  "name": "ai-eg-host-rewrite-optimized"
+                },
+                "type": "ExtensionRef"
+              }
+            ],
+            "matches": [
+              {
+                "headers": [
+                  {
+                    "name": "x-ai-eg-model",
+                    "type": "Exact",
+                    "value": "ml-team/optimized"
+                  }
+                ],
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/"
+                }
+              }
+            ],
+            "timeouts": {
+              "request": "300s"
+            }
+          },
+          {
+            "filters": [
+              {
+                "extensionRef": {
+                  "group": "gateway.envoyproxy.io",
+                  "kind": "HTTPRouteFilter",
+                  "name": "ai-eg-route-not-found-response-optimized"
+                },
+                "type": "ExtensionRef"
+              }
+            ],
+            "matches": [
+              {
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/"
+                }
+              }
+            ],
+            "name": "route-not-found"
+          }
+        ]
+      },
+      "status": {
+        "parents": [
+          {
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-11-02T16:50:45Z",
+                "message": "Route is accepted",
+                "observedGeneration": 1,
+                "reason": "Accepted",
+                "status": "True",
+                "type": "Accepted"
+              },
+              {
+                "lastTransitionTime": "2026-11-02T16:50:45Z",
+                "message": "Resolved all the Object references for the Route",
+                "observedGeneration": 1,
+                "reason": "ResolvedRefs",
+                "status": "True",
+                "type": "ResolvedRefs"
+              }
+            ],
+            "controllerName": "gateway.envoyproxy.io/gatewayclass-controller",
+            "parentRef": {
+              "group": "gateway.networking.k8s.io",
+              "kind": "Gateway",
+              "name": "inference-gateway",
+              "namespace": "modelplane-system",
+              "sectionName": "http"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "gateway.networking.k8s.io/v1",
+      "kind": "HTTPRoute",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generation": 1,
+        "name": "optimized-a7558",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9110",
+        "uid": "68d8d174-1931-473c-b3e1-2c248ef97cb3"
+      },
+      "spec": {
+        "parentRefs": [
+          {
+            "group": "gateway.networking.k8s.io",
+            "kind": "Gateway",
+            "name": "cluster-gateway",
+            "namespace": "modelplane-system"
+          }
+        ],
+        "rules": [
+          {
+            "backendRefs": [
+              {
+                "group": "inference.networking.k8s.io",
+                "kind": "InferencePool",
+                "name": "optimized-a7558-pool",
+                "weight": 1
+              }
+            ],
+            "filters": [
+              {
+                "type": "URLRewrite",
+                "urlRewrite": {
+                  "path": {
+                    "replacePrefixMatch": "/",
+                    "type": "ReplacePrefixMatch"
+                  }
+                }
+              }
+            ],
+            "matches": [
+              {
+                "path": {
+                  "type": "PathPrefix",
+                  "value": "/ml-team/optimized-a7558/"
+                }
+              }
+            ],
+            "timeouts": {
+              "request": "0s"
+            }
+          }
+        ]
+      },
+      "status": {
+        "parents": [
+          {
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-11-02T16:45:44Z",
+                "message": "Route is accepted",
+                "observedGeneration": 1,
+                "reason": "Accepted",
+                "status": "True",
+                "type": "Accepted"
+              },
+              {
+                "lastTransitionTime": "2026-11-02T16:45:44Z",
+                "message": "Resolved all the Object references for the Route",
+                "observedGeneration": 1,
+                "reason": "ResolvedRefs",
+                "status": "True",
+                "type": "ResolvedRefs"
+              }
+            ],
+            "controllerName": "gateway.envoyproxy.io/gatewayclass-controller",
+            "parentRef": {
+              "group": "gateway.networking.k8s.io",
+              "kind": "Gateway",
+              "name": "cluster-gateway",
+              "namespace": "modelplane-system"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "inference.networking.k8s.io/v1",
+      "kind": "InferencePool",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "generation": 1,
+        "name": "audience-4cd7f-pool",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12084",
+        "uid": "4b4a19f2-1eee-4246-bec6-050fc0ab80c9"
+      },
+      "spec": {
+        "endpointPickerRef": {
+          "failureMode": "FailOpen",
+          "group": "",
+          "kind": "Service",
+          "name": "audience-4cd7f-epp",
+          "port": {
+            "number": 9002
+          }
+        },
+        "selector": {
+          "matchLabels": {
+            "modelplane.ai/serving": "audience-4cd7f"
+          }
+        },
+        "targetPorts": [
+          {
+            "number": 8000
+          }
+        ]
+      },
+      "status": {
+        "parents": [
+          {
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-11-02T16:51:06Z",
+                "message": "InferencePool has been Accepted by controller ai-gateway-controller: InferencePool reconciled successfully",
+                "observedGeneration": 1,
+                "reason": "Accepted",
+                "status": "True",
+                "type": "Accepted"
+              },
+              {
+                "lastTransitionTime": "2026-11-02T16:51:06Z",
+                "message": "Reference resolution by controller ai-gateway-controller: All references resolved successfully",
+                "observedGeneration": 1,
+                "reason": "ResolvedRefs",
+                "status": "True",
+                "type": "ResolvedRefs"
+              }
+            ],
+            "parentRef": {
+              "group": "gateway.networking.k8s.io",
+              "kind": "Gateway",
+              "name": "cluster-gateway",
+              "namespace": "modelplane-system"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "inference.networking.k8s.io/v1",
+      "kind": "InferencePool",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "generation": 1,
+        "name": "optimized-a7558-pool",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9122",
+        "uid": "604fa776-9b70-4a92-9e5a-fdcf591bc32f"
+      },
+      "spec": {
+        "endpointPickerRef": {
+          "failureMode": "FailOpen",
+          "group": "",
+          "kind": "Service",
+          "name": "optimized-a7558-epp",
+          "port": {
+            "number": 9002
+          }
+        },
+        "selector": {
+          "matchLabels": {
+            "modelplane.ai/serving": "optimized-a7558"
+          }
+        },
+        "targetPorts": [
+          {
+            "number": 8000
+          }
+        ]
+      },
+      "status": {
+        "parents": [
+          {
+            "conditions": [
+              {
+                "lastTransitionTime": "2026-11-02T16:45:44Z",
+                "message": "InferencePool has been Accepted by controller ai-gateway-controller: InferencePool reconciled successfully",
+                "observedGeneration": 1,
+                "reason": "Accepted",
+                "status": "True",
+                "type": "Accepted"
+              },
+              {
+                "lastTransitionTime": "2026-11-02T16:45:44Z",
+                "message": "Reference resolution by controller ai-gateway-controller: All references resolved successfully",
+                "observedGeneration": 1,
+                "reason": "ResolvedRefs",
+                "status": "True",
+                "type": "ResolvedRefs"
+              }
+            ],
+            "parentRef": {
+              "group": "gateway.networking.k8s.io",
+              "kind": "Gateway",
+              "name": "cluster-gateway",
+              "namespace": "modelplane-system"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "name": "audience-4cd7f-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12054",
+        "uid": "a419b55a-4975-4119-a191-d3c69b1557e8"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "audience-4cd7f-epp"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "audience-4cd7f-epp",
+          "namespace": "mp-ml-team-51733"
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "name": "optimized-a7558-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9106",
+        "uid": "726820f9-ac6c-4629-81f9-2b535301a5c1"
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "optimized-a7558-epp"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "optimized-a7558-epp",
+          "namespace": "mp-ml-team-51733"
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "Role",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "name": "audience-4cd7f-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12057",
+        "uid": "cbb7b873-6b9b-4c50-91d3-35efe70ee828"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        },
+        {
+          "apiGroups": [
+            "inference.networking.k8s.io"
+          ],
+          "resources": [
+            "inferencepools"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        },
+        {
+          "apiGroups": [
+            "inference.networking.x-k8s.io"
+          ],
+          "resources": [
+            "inferenceobjectives"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        }
+      ]
+    },
+    {
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "Role",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "name": "optimized-a7558-epp",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9112",
+        "uid": "9dd404d2-bab5-4a5d-83ba-ea8454c321c2"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        },
+        {
+          "apiGroups": [
+            "inference.networking.k8s.io"
+          ],
+          "resources": [
+            "inferencepools"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        },
+        {
+          "apiGroups": [
+            "inference.networking.x-k8s.io"
+          ],
+          "resources": [
+            "inferenceobjectives"
+          ],
+          "verbs": [
+            "get",
+            "watch",
+            "list"
+          ]
+        }
+      ]
+    },
+    {
+      "apiVersion": "resource.k8s.io/v1",
+      "kind": "ResourceClaim",
+      "metadata": {
+        "annotations": {
+          "resource.kubernetes.io/pod-claim-name": "devices"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "finalizers": [
+          "resource.kubernetes.io/delete-protection"
+        ],
+        "generateName": "audience-4cd7f-qwen3-8b-303a3-5975655f47-496d6-devices-",
+        "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-496d6-devices-gpcml",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "controller": true,
+            "kind": "Pod",
+            "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-496d6",
+            "uid": "82719752-9003-49dd-a31e-a014ac14e744"
+          }
+        ],
+        "resourceVersion": "12103",
+        "uid": "8ad23f6a-1c1a-49a7-9de5-668c2ca21c3f"
+      },
+      "spec": {
+        "devices": {
+          "requests": [
+            {
+              "exactly": {
+                "allocationMode": "ExactCount",
+                "count": 1,
+                "deviceClassName": "gpu.nvidia.com",
+                "selectors": [
+                  {
+                    "cel": {
+                      "expression": "device.capacity[\"gpu.nvidia.com\"].memory.compareTo(quantity(\"20Gi\")) >= 0"
+                    }
+                  }
+                ]
+              },
+              "name": "gpu"
+            }
+          ]
+        }
+      },
+      "status": {
+        "allocation": {
+          "allocationTimestamp": "2026-11-02T16:51:06Z",
+          "devices": {
+            "results": [
+              {
+                "device": "gpu-0",
+                "driver": "gpu.nvidia.com",
+                "pool": "ip-10-0-87-93.us-east-2.compute.internal",
+                "request": "gpu"
+              }
+            ]
+          },
+          "nodeSelector": {
+            "nodeSelectorTerms": [
+              {
+                "matchFields": [
+                  {
+                    "key": "metadata.name",
+                    "operator": "In",
+                    "values": [
+                      "ip-10-0-87-93.us-east-2.compute.internal"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "reservedFor": [
+          {
+            "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-496d6",
+            "resource": "pods",
+            "uid": "82719752-9003-49dd-a31e-a014ac14e744"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "resource.k8s.io/v1",
+      "kind": "ResourceClaim",
+      "metadata": {
+        "annotations": {
+          "resource.kubernetes.io/pod-claim-name": "devices"
+        },
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "finalizers": [
+          "resource.kubernetes.io/delete-protection"
+        ],
+        "generateName": "audience-4cd7f-qwen3-8b-303a3-5975655f47-9b2dp-devices-",
+        "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-9b2dp-devices-9t86n",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "controller": true,
+            "kind": "Pod",
+            "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-9b2dp",
+            "uid": "80698562-d5bc-47e0-b626-9fde175cce99"
+          }
+        ],
+        "resourceVersion": "12107",
+        "uid": "7c59dacf-02c7-41b6-b262-dac4f2ff15cf"
+      },
+      "spec": {
+        "devices": {
+          "requests": [
+            {
+              "exactly": {
+                "allocationMode": "ExactCount",
+                "count": 1,
+                "deviceClassName": "gpu.nvidia.com",
+                "selectors": [
+                  {
+                    "cel": {
+                      "expression": "device.capacity[\"gpu.nvidia.com\"].memory.compareTo(quantity(\"20Gi\")) >= 0"
+                    }
+                  }
+                ]
+              },
+              "name": "gpu"
+            }
+          ]
+        }
+      },
+      "status": {
+        "allocation": {
+          "allocationTimestamp": "2026-11-02T16:51:06Z",
+          "devices": {
+            "results": [
+              {
+                "device": "gpu-0",
+                "driver": "gpu.nvidia.com",
+                "pool": "ip-10-0-83-125.us-east-2.compute.internal",
+                "request": "gpu"
+              }
+            ]
+          },
+          "nodeSelector": {
+            "nodeSelectorTerms": [
+              {
+                "matchFields": [
+                  {
+                    "key": "metadata.name",
+                    "operator": "In",
+                    "values": [
+                      "ip-10-0-83-125.us-east-2.compute.internal"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "reservedFor": [
+          {
+            "name": "audience-4cd7f-qwen3-8b-303a3-5975655f47-9b2dp",
+            "resource": "pods",
+            "uid": "80698562-d5bc-47e0-b626-9fde175cce99"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "resource.k8s.io/v1",
+      "kind": "ResourceClaim",
+      "metadata": {
+        "annotations": {
+          "resource.kubernetes.io/pod-claim-name": "devices"
+        },
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "finalizers": [
+          "resource.kubernetes.io/delete-protection"
+        ],
+        "generateName": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-wgn8k-devices-",
+        "name": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-wgn8k-devices-vkfds",
+        "namespace": "mp-ml-team-51733",
+        "ownerReferences": [
+          {
+            "apiVersion": "v1",
+            "controller": true,
+            "kind": "Pod",
+            "name": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-wgn8k",
+            "uid": "a4fcc76c-c43b-45f4-beca-63d8ee8a8151"
+          }
+        ],
+        "resourceVersion": "9147",
+        "uid": "257bd521-2dcd-47cb-86b9-0c2094210f3f"
+      },
+      "spec": {
+        "devices": {
+          "requests": [
+            {
+              "exactly": {
+                "allocationMode": "ExactCount",
+                "count": 2,
+                "deviceClassName": "gpu.nvidia.com",
+                "selectors": [
+                  {
+                    "cel": {
+                      "expression": "device.capacity[\"gpu.nvidia.com\"].memory.compareTo(quantity(\"20Gi\")) >= 0"
+                    }
+                  }
+                ]
+              },
+              "name": "gpu"
+            }
+          ]
+        }
+      },
+      "status": {
+        "allocation": {
+          "allocationTimestamp": "2026-11-02T16:45:45Z",
+          "devices": {
+            "results": [
+              {
+                "device": "gpu-0",
+                "driver": "gpu.nvidia.com",
+                "pool": "ip-10-0-88-186.us-east-2.compute.internal",
+                "request": "gpu"
+              },
+              {
+                "device": "gpu-1",
+                "driver": "gpu.nvidia.com",
+                "pool": "ip-10-0-88-186.us-east-2.compute.internal",
+                "request": "gpu"
+              }
+            ]
+          },
+          "nodeSelector": {
+            "nodeSelectorTerms": [
+              {
+                "matchFields": [
+                  {
+                    "key": "metadata.name",
+                    "operator": "In",
+                    "values": [
+                      "ip-10-0-88-186.us-east-2.compute.internal"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "reservedFor": [
+          {
+            "name": "optimized-a7558-qwen3-8b-3a00f-84f96c895d-wgn8k",
+            "resource": "pods",
+            "uid": "a4fcc76c-c43b-45f4-beca-63d8ee8a8151"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "resource.k8s.io/v1",
+      "kind": "ResourceClaimTemplate",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:51:06Z",
+        "name": "audience-4cd7f-qwen3-8b-standalone-devices-3cc3b",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "12079",
+        "uid": "ebae60fe-5014-43ee-b189-c59fde62e77c"
+      },
+      "spec": {
+        "metadata": {},
+        "spec": {
+          "devices": {
+            "requests": [
+              {
+                "exactly": {
+                  "allocationMode": "ExactCount",
+                  "count": 1,
+                  "deviceClassName": "gpu.nvidia.com",
+                  "selectors": [
+                    {
+                      "cel": {
+                        "expression": "device.capacity[\"gpu.nvidia.com\"].memory.compareTo(quantity(\"20Gi\")) >= 0"
+                      }
+                    }
+                  ]
+                },
+                "name": "gpu"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "resource.k8s.io/v1",
+      "kind": "ResourceClaimTemplate",
+      "metadata": {
+        "creationTimestamp": "2026-11-02T16:45:44Z",
+        "name": "optimized-a7558-qwen3-8b-standalone-devices-bd3dc",
+        "namespace": "mp-ml-team-51733",
+        "resourceVersion": "9113",
+        "uid": "d5796087-0f69-4ebf-a831-fba03c89525e"
+      },
+      "spec": {
+        "metadata": {},
+        "spec": {
+          "devices": {
+            "requests": [
+              {
+                "exactly": {
+                  "allocationMode": "ExactCount",
+                  "count": 2,
+                  "deviceClassName": "gpu.nvidia.com",
+                  "selectors": [
+                    {
+                      "cel": {
+                        "expression": "device.capacity[\"gpu.nvidia.com\"].memory.compareTo(quantity(\"20Gi\")) >= 0"
+                      }
+                    }
+                  ]
+                },
+                "name": "gpu"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

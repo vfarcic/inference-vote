@@ -183,7 +183,84 @@
     const reset = document.getElementById("reset");
     let state = null;
     let race = null;
+    let stackData = null; // what each deployment became, from /api/stack
+    const opened = new Set(); // the stack's sections the presenter opened
     let armed = false;
+
+    // The screen is redrawn every second; a section someone opened stays open.
+    root.addEventListener("toggle", (e) => {
+      const key = e.target.dataset && e.target.dataset.key;
+      if (!key) return;
+      if (e.target.open) opened.add(key); else opened.delete(key);
+    }, true);
+    const details = (key, summary, body) =>
+      `<details data-key="${esc(key)}"${opened.has(key) ? " open" : ""}><summary>${summary}</summary>${body}</details>`;
+
+    const dtype = (d) => (!d ? "-" : d === "auto" ? "16-bit (the model's own)" : d.toUpperCase());
+    const gib = (v) => (v ? `${v.toFixed(2)} GiB` : "-");
+
+    // One engine: what vLLM loaded, on which GPUs, and how much room that
+    // left for conversations, the number question 1 is about.
+    function engineHTML(e, i, count) {
+      const per = e.tensorParallel > 1 ? " per GPU" : "";
+      return `<div class="engine">
+        <h4>${count > 1 ? `Copy ${i + 1}` : "Engine"} <span class="muted">${esc(e.ready ? "ready" : "starting")}</span></h4>
+        <table class="stats">
+          <tr><th>Model</th><td>${esc(e.model || "-")}</td></tr>
+          <tr><th>GPUs</th><td>${e.gpus && e.gpus.length ? `${e.gpus.length}: ${esc(e.gpus.join(", "))}` : "-"} <span class="muted">${esc(e.node || "")}</span></td></tr>
+          <tr><th>Split across GPUs</th><td>${e.tensorParallel > 1 ? `${e.tensorParallel} (tensor parallelism)` : "no"}</td></tr>
+          <tr><th>Weights${per}</th><td>${e.weightsGiB && e.weightsGiB.length ? `${e.weightsGiB[0].toFixed(2)} GiB` : "loading..."}</td></tr>
+          <tr><th>KV cache${per}</th><td>${gib(e.kvCacheGiB)}</td></tr>
+          <tr><th>KV cache precision</th><td>${esc(dtype(e.kvCacheDtype))}</td></tr>
+          <tr class="big"><th>Full-length conversations that fit</th><td>${e.conversations ? e.conversations.toFixed(2) : "-"}</td></tr>
+        </table>
+      </div>`;
+    }
+
+    function createdHTML(items) {
+      if (!items || !items.length) return `<p class="muted">Nothing yet.</p>`;
+      return `<table class="inventory"><tbody>${items.map((c) =>
+        `<tr><td class="muted">${esc(c.apiVersion)}</td><td>${esc(c.kind)}</td><td><code>${esc(c.name)}</code></td><td>${esc((c.facts || []).join(", "))}</td></tr>`).join("")}</tbody></table>`;
+    }
+
+    // While the audience's pick comes up: everything it is becoming.
+    function deployingStackHTML(d) {
+      const a = d && d.audience;
+      if (!a) return "";
+      const composed = `<table class="inventory"><tbody>${(a.composed || []).map((c) =>
+        `<tr><td class="muted">${esc(c.apiVersion)}</td><td>${esc(c.kind)}</td><td><code>${esc(c.name)}</code></td></tr>`).join("")}</tbody></table>`;
+      const engines = (a.engines || []).map((e, i) => engineHTML(e, i, a.engines.length)).join("");
+      return `<section class="stack">
+        <h2>What your pick is becoming</h2>
+        ${details("deploying-composed", `Modelplane composed ${(a.composed || []).length} resources`, composed)}
+        ${details("deploying-created", `Kubernetes created ${(a.created || []).length} more from them`, createdHTML(a.created))}
+        <h3>Inside vLLM</h3>
+        <div class="engines">${engines || `<p class="muted">The engines haven't started yet.</p>`}</div>
+      </section>`;
+    }
+
+    // In the race: both sides, with only what differs opened up.
+    function raceStackHTML(d, n) {
+      if (!d || !d.optimized || !d.audience) return "";
+      const state = (p) => ({ same: "same", differs: "differs", optimized: `only in ${n.optimized}`, audience: `only in ${n.audience}` }[p.state]);
+      const rows = (d.pairs || []).map((p) => {
+        const head = `<span class="muted">${esc(p.apiVersion)}</span> ${esc(p.kind)} <code>${esc(p.key)}</code> <span class="state ${p.state}">${esc(state(p))}</span>`;
+        return p.state === "differs"
+          ? details(`pair-${p.kind}-${p.key}`, head, manifestsHTML(p.rows, n))
+          : `<div class="pair">${head}</div>`;
+      }).join("");
+      const differs = (d.pairs || []).filter((p) => p.state !== "same").length;
+      const engines = (side) => (side.engines || []).map((e, i) => engineHTML(e, i, side.engines.length)).join("");
+      return `<section class="stack">
+        <h2>Everything each one became</h2>
+        <h3>Composed by Modelplane <span class="muted">${(d.pairs || []).length} resources, ${differs} differ</span></h3>
+        <div class="pairs">${rows}</div>
+        ${details("race-created", `Created by Kubernetes from those: ${(d.optimized.created || []).length} and ${(d.audience.created || []).length}`,
+          `<div class="race"><div><h4>${n.optimized}</h4>${createdHTML(d.optimized.created)}</div><div><h4>${n.audience}</h4>${createdHTML(d.audience.created)}</div></div>`)}
+        <h3>Inside vLLM</h3>
+        <div class="race"><div><h4>${n.optimized}</h4><div class="engines">${engines(d.optimized)}</div></div><div><h4>${n.audience}</h4><div class="engines">${engines(d.audience)}</div></div></div>
+      </section>`;
+    }
 
     try { token.value = localStorage.getItem("presenter-token") || ""; } catch (_) {}
     token.onchange = () => { try { localStorage.setItem("presenter-token", token.value); } catch (_) {} };
@@ -302,14 +379,15 @@
         const votes = s.tally[s.question][0] + s.tally[s.question][1];
         html = `<p class="step">Question ${s.question + 1} of ${s.questions.length} - ${votes} votes</p><h1>${esc(s.questions[s.question].text)}</h1>${tallyHTML(s, s.question)}`;
       } else if (s.phase === "deploying") {
-        html = deployingHTML(s);
+        html = deployingHTML(s) + deployingStackHTML(stackData);
       } else if (s.phase === "race") {
         const n = names(s);
         html = race
           ? `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
             <div class="race">${sideHTML(n.optimized, race.optimized, s, false)}${sideHTML(n.audience, race.audience, s, true)}</div>
             ${resultsHTML(race.results, n)}
-            ${manifestsHTML(race.manifests, n)}`
+            ${manifestsHTML(race.manifests, n)}
+            ${raceStackHTML(stackData, n)}`
           : `<h1>The race</h1><p class="muted">Starting...</p>`;
       }
       // Keep the manifests where the presenter scrolled them.
@@ -323,9 +401,15 @@
       fetch("/api/race").then((r) => (r.status === 200 ? r.json() : null)).then((r) => { race = r; render(); }).catch(() => {});
     }
 
+    function pollStack() {
+      if (!state || (state.phase !== "deploying" && state.phase !== "race")) { stackData = null; return; }
+      fetch("/api/stack").then((r) => (r.status === 200 ? r.json() : null)).then((d) => { stackData = d; render(); }).catch(() => {});
+    }
+
     setInterval(() => state && state.phase === "deploying" && render(), 1000);
     setInterval(pollRace, 2000);
-    stream((s) => { render(s); if (s.phase === "race" && !race) pollRace(); });
+    setInterval(pollStack, 5000);
+    stream((s) => { render(s); if (s.phase === "race" && !race) pollRace(); if (!stackData) pollStack(); });
   }
 
   window.InferenceVote = { audience, presenter };

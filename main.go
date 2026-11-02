@@ -116,6 +116,7 @@ func serve(ctx context.Context, args []string) error {
 	go s.WatchPods(ctx)
 	go s.RunRace(ctx)
 	go s.ProbeGateway(ctx)
+	go s.WatchStacks(ctx)
 
 	handler := s.Handler()
 	if *domain == "" {

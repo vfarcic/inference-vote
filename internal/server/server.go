@@ -51,6 +51,8 @@ type Server struct {
 
 	reasonsMu sync.Mutex
 	reasons   map[string]string // crash reasons read from logs, by pod and restart count
+
+	stacks stacks // what each deployment became on the cluster
 }
 
 func New(cfg Config, p *poll.Poll, k *kube.Client) *Server {
@@ -74,6 +76,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/state", s.state)
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("GET /api/race", s.raceState)
+	mux.HandleFunc("GET /api/stack", s.stackState)
 	mux.HandleFunc("POST /api/vote", s.vote)
 	mux.HandleFunc("POST /api/chat", s.chatProxy)
 	mux.HandleFunc("POST /api/presenter/next", s.presenter(func() { s.poll.Next() }))

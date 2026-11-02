@@ -15,19 +15,47 @@ metadata:
   name: inference-vote
   namespace: inference-vote
 ---
-# Read-only, and only pods: enough to show the audience's engines coming up,
-# and their logs, to say why one crashed.
+# Read-only: the engines' pods and logs, to show them coming up and say why one
+# crashed, and the kinds of resources Modelplane composes and controllers
+# create from them, to show what each deployment became. Never Secrets.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: inference-vote
 rules:
 - apiGroups: [""]
-  resources: ["pods"]
+  resources: ["pods", "services", "configmaps", "serviceaccounts"]
   verbs: ["list"]
 - apiGroups: [""]
   resources: ["pods/log"]
   verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["list"]
+- apiGroups: ["discovery.k8s.io"]
+  resources: ["endpointslices"]
+  verbs: ["list"]
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims", "resourceclaimtemplates"]
+  verbs: ["list"]
+- apiGroups: ["inference.networking.k8s.io"]
+  resources: ["inferencepools"]
+  verbs: ["list"]
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["httproutes"]
+  verbs: ["list"]
+- apiGroups: ["gateway.envoyproxy.io"]
+  resources: ["backends", "httproutefilters"]
+  verbs: ["list"]
+- apiGroups: ["aigateway.envoyproxy.io"]
+  resources: ["aigatewayroutes", "aiservicebackends"]
+  verbs: ["list"]
+- apiGroups: ["cert-manager.io"]
+  resources: ["certificates", "certificaterequests"]
+  verbs: ["list"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
