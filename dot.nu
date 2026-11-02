@@ -747,16 +747,17 @@ def --env "main destroy" [
     # the cloud resources go afterwards. Deleting kind before they do would
     # leave them running, billed, with nothing to delete them.
     print "Waiting for Crossplane to delete the cloud resources. This takes 10 to 20 minutes."
-    mut left = (kubectl get managed --output name | complete | get stdout | lines | length)
+    mut left = (cloud resources left)
     mut waited = 0
-    while $left > 0 and $waited < 3600 {
+    while $left != 0 and $waited < 3600 {
         sleep 30sec
         $waited += 30
-        $left = (kubectl get managed --output name | complete | get stdout | lines | length)
+        $left = (cloud resources left)
     }
-    if $left > 0 {
-        print $"(ansi red_bold)($left) cloud resources are still there after an hour(ansi reset). kind is left running so Crossplane can finish; run `./dot.nu destroy ($provider)` again later."
-        kubectl get managed
+    if $left != 0 {
+        let what = if $left < 0 { "Couldn't count the cloud resources still there" } else { $"($left) cloud resources are still there" }
+        print $"(ansi red_bold)($what) after an hour(ansi reset). kind is left running so Crossplane can finish; run `./dot.nu destroy ($provider)` again later."
+        kubectl get managed --all-namespaces
         exit 1
     }
 
@@ -775,4 +776,15 @@ def --env "main destroy" [
     rm --force kubeconfig-kind.yaml $WORKLOAD_KUBECONFIG gcp-creds.json aws-creds.conf
     main delete temp_files
 
+}
+
+# How many of Crossplane's cloud resources are left, or -1 if they couldn't be
+# counted, which must never pass for none. Modelplane's are namespaced, so
+# every namespace counts.
+def "cloud resources left" [] {
+    let result = (kubectl get managed --all-namespaces --output name | complete)
+    if $result.exit_code != 0 {
+        return (-1)
+    }
+    $result.stdout | lines | where { |l| $l != "" } | length
 }
