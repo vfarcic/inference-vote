@@ -2,6 +2,7 @@ package stack
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"sort"
 	"strconv"
@@ -123,8 +124,16 @@ var (
 	kvLine      = regexp.MustCompile(`Available KV cache memory: ([0-9.]+) GiB`)
 	tokensLine  = regexp.MustCompile(`GPU KV cache size: ([0-9,]+) tokens`)
 	concLine    = regexp.MustCompile(`Maximum concurrency for [0-9,]+ tokens per request: ([0-9.]+)x`)
-	dtypeLabel  = regexp.MustCompile(`vllm:cache_config_info\{[^}]*cache_dtype="([^"]*)"`)
+	configLine  = regexp.MustCompile(`(?m)^vllm:cache_config_info\{.*$`)
+	dtypeLabel  = regexp.MustCompile(`[{,]cache_dtype="([^"]*)"`)
+	concLabel   = regexp.MustCompile(`[{,]kv_cache_max_concurrency="([0-9.]+)"`)
+	blocksLabel = regexp.MustCompile(`[{,]num_gpu_blocks="([0-9]+)"`)
+	blockLabel  = regexp.MustCompile(`[{,]block_size="([0-9]+)"`)
 )
+
+// ConfigLine keeps the one line of an engine's metrics that Engines reads:
+// how vLLM configured the KV cache. Unlike the startup log, it is always there.
+func ConfigLine(metrics string) string { return configLine.FindString(metrics) }
 
 // Engines describes a deployment's engine pods from what controllers created
 // (the pods and their GPU claims), each pod's startup log, and its metrics.
@@ -187,8 +196,21 @@ func Engines(created []Object, logs, metrics map[string]string) []Engine {
 		if m := concLine.FindStringSubmatch(log); m != nil {
 			e.Conversations, _ = strconv.ParseFloat(m[1], 64)
 		}
-		if m := dtypeLabel.FindStringSubmatch(metrics[o.Name()]); m != nil {
+		// The metrics say how vLLM configured the KV cache for as long as the
+		// engine runs; the startup log may have rotated away by the race.
+		cfg := configLine.FindString(metrics[o.Name()])
+		if m := dtypeLabel.FindStringSubmatch(cfg); m != nil {
 			e.KVCacheDtype = m[1]
+		}
+		if m := concLabel.FindStringSubmatch(cfg); m != nil && e.Conversations == 0 {
+			v, _ := strconv.ParseFloat(m[1], 64)
+			e.Conversations = math.Round(v*100) / 100
+		}
+		blocks, size := blocksLabel.FindStringSubmatch(cfg), blockLabel.FindStringSubmatch(cfg)
+		if blocks != nil && size != nil && e.KVCacheTokens == 0 {
+			b, _ := strconv.Atoi(blocks[1])
+			sz, _ := strconv.Atoi(size[1])
+			e.KVCacheTokens = b * sz
 		}
 		out = append(out, e)
 	}

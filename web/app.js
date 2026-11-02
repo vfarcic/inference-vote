@@ -209,7 +209,7 @@
           <tr><th>Model</th><td>${esc(e.model || "-")}</td></tr>
           <tr><th>GPUs</th><td>${e.gpus && e.gpus.length ? `${e.gpus.length}: ${esc(e.gpus.join(", "))}` : "-"} <span class="muted">${esc(e.node || "")}</span></td></tr>
           <tr><th>Split across GPUs</th><td>${e.tensorParallel > 1 ? `${e.tensorParallel} (tensor parallelism)` : "no"}</td></tr>
-          <tr><th>Weights${per}</th><td>${e.weightsGiB && e.weightsGiB.length ? `${e.weightsGiB[0].toFixed(2)} GiB` : "loading..."}</td></tr>
+          <tr><th>Weights${per}</th><td>${e.weightsGiB && e.weightsGiB.length ? `${e.weightsGiB[0].toFixed(2)} GiB` : e.ready ? "-" : "loading..."}</td></tr>
           <tr><th>KV cache${per}</th><td>${gib(e.kvCacheGiB)}</td></tr>
           <tr><th>KV cache precision</th><td>${esc(dtype(e.kvCacheDtype))}</td></tr>
           <tr class="big"><th>Full-length conversations that fit</th><td>${e.conversations ? e.conversations.toFixed(2) : "-"}</td></tr>

@@ -184,6 +184,24 @@ func TestEngines(t *testing.T) {
 	}
 }
 
+// Serving rotates an engine's log, so by the race its startup lines can be
+// gone. The KV cache's size and the conversations that fit still come from the
+// metrics; only the GiB figures, which only the log has, go missing.
+func TestEnginesAfterLogRotation(t *testing.T) {
+	opt, _ := load(t)
+	_, created := Split(opt)
+	metrics := map[string]string{}
+	for _, o := range created {
+		if m, err := os.ReadFile(filepath.Join("testdata/metrics", o.Name()+".txt")); err == nil {
+			metrics[o.Name()] = ConfigLine("# HELP x\nvllm:other 1\n" + string(m))
+		}
+	}
+	e := Engines(created, map[string]string{}, metrics)
+	if len(e) != 1 || e[0].Conversations != 23.93 || e[0].KVCacheTokens != 196016 || e[0].KVCacheDtype != "auto" || e[0].KVCacheGiB != 0 || len(e[0].WeightsGiB) != 0 {
+		t.Errorf("got %+v", e)
+	}
+}
+
 func mustRead(t *testing.T, path string) string {
 	t.Helper()
 	b, err := os.ReadFile(path)
