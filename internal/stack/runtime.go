@@ -18,11 +18,22 @@ type Created struct {
 	Facts      []string `json:"facts,omitempty"`
 }
 
-// Summarize describes what controllers created for a deployment.
-func Summarize(created []Object, deployment string) []Created {
+// Summarize describes what controllers created for a deployment, including
+// the Secret cert-manager issues for each of its Certificates. The app never
+// reads Secrets, which hold credentials, so those come from the Certificates'
+// secretName rather than from the API.
+func Summarize(composed, created []Object, deployment string) []Created {
 	var out []Created
 	for _, o := range created {
 		out = append(out, Created{APIVersion: o.APIVersion(), Kind: o.Kind(), Key: Key(o.Name(), deployment), Name: o.Name(), Facts: facts(o)})
+	}
+	for _, o := range composed {
+		if o.Kind() != "Certificate" {
+			continue
+		}
+		if name := o.str("spec", "secretName"); name != "" {
+			out = append(out, Created{APIVersion: "v1", Kind: "Secret", Key: Key(name, deployment), Name: name, Facts: []string{"issued by cert-manager for the Certificate", "contents never read"}})
+		}
 	}
 	return out
 }

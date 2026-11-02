@@ -217,6 +217,12 @@
       </div>`;
     }
 
+    // Kinds the app wasn't allowed to read: anything of those kinds is missing
+    // from the screen, so it says so rather than look complete.
+    const unreadableHTML = (d) => (d && d.unreadable && d.unreadable.length
+      ? `<p class="note">Couldn't read ${d.unreadable.length} ${d.unreadable.length === 1 ? "kind" : "kinds"} of resource, so anything of ${d.unreadable.length === 1 ? "that kind" : "those kinds"} is missing here: ${esc(d.unreadable.join(", "))}.</p>`
+      : "");
+
     function createdHTML(items) {
       if (!items || !items.length) return `<p class="muted">Nothing yet.</p>`;
       return `<table class="inventory"><tbody>${items.map((c) =>
@@ -232,6 +238,7 @@
       const engines = (a.engines || []).map((e, i) => engineHTML(e, i, a.engines.length)).join("");
       return `<section class="stack">
         <h2>What your pick is becoming</h2>
+        ${unreadableHTML(d)}
         ${details("deploying-composed", `Modelplane composed ${(a.composed || []).length} resources`, composed)}
         ${details("deploying-created", `Kubernetes created ${(a.created || []).length} more from them`, createdHTML(a.created))}
         <h3>Inside vLLM</h3>
@@ -253,6 +260,7 @@
       const engines = (side) => (side.engines || []).map((e, i) => engineHTML(e, i, side.engines.length)).join("");
       return `<section class="stack">
         <h2>Everything each one became</h2>
+        ${unreadableHTML(d)}
         <h3>Composed by Modelplane <span class="muted">${(d.pairs || []).length} resources, ${differs} differ</span></h3>
         <div class="pairs">${rows}</div>
         ${details("race-created", `Created by Kubernetes from those: ${(d.optimized.created || []).length} and ${(d.audience.created || []).length}`,

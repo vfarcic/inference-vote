@@ -19,14 +19,15 @@ import (
 // comes up and during the race: the resources Modelplane composed, what
 // controllers created from them, and what vLLM did inside the engines.
 type stacks struct {
-	mu      sync.Mutex
-	session int
-	sides   map[string]*stackSide
-	pairs   []stack.Pair
-	logs    map[string]string // engine pod -> the startup lines read so far
-	metrics map[string]string // engine pod -> its metrics, read once
-	types   []kube.Type
-	typesAt time.Time
+	mu         sync.Mutex
+	session    int
+	sides      map[string]*stackSide
+	pairs      []stack.Pair
+	logs       map[string]string // engine pod -> the startup lines read so far
+	metrics    map[string]string // engine pod -> its metrics, read once
+	types      []kube.Type
+	typesAt    time.Time
+	unreadable []string // kinds the app isn't allowed to list, so missing from the screen
 }
 
 type stackSide struct {
@@ -94,17 +95,22 @@ func (s *Server) collectStacks(ctx context.Context, client *http.Client, session
 			return fmt.Errorf("discovering resource types: %w", err)
 		}
 		s.stacks.mu.Lock()
-		s.stacks.types, s.stacks.typesAt = types, time.Now()
+		s.stacks.types, s.stacks.typesAt, s.stacks.unreadable = types, time.Now(), nil
 		s.stacks.mu.Unlock()
 	}
 
 	var all []stack.Object
 	readable := types[:0:0]
+	var unreadable []string
 	for _, t := range types {
 		items, err := s.kube.ListType(ctx, ns, t)
 		var se *kube.StatusError
 		if errors.As(err, &se) && se.Code == http.StatusForbidden {
-			continue // not a kind the app may read, so not one it asks for again
+			// Not a kind the app may read. It isn't asked for again, but the
+			// screen says it couldn't be: a resource of that kind would be
+			// missing from it.
+			unreadable = append(unreadable, t.Kind+" ("+t.APIVersion()+")")
+			continue
 		}
 		readable = append(readable, t)
 		for _, it := range items {
@@ -113,6 +119,7 @@ func (s *Server) collectStacks(ctx context.Context, client *http.Client, session
 	}
 	s.stacks.mu.Lock()
 	s.stacks.types = readable
+	s.stacks.unreadable = append(s.stacks.unreadable, unreadable...)
 	s.stacks.mu.Unlock()
 
 	sides := map[string]*stackSide{}
@@ -127,7 +134,7 @@ func (s *Server) collectStacks(ctx context.Context, client *http.Client, session
 		composed, created := stack.Split(mine)
 		composedBy[dep] = composed
 		logs, metrics := s.engineOutput(ctx, client, ns, pods, dep)
-		side := &stackSide{Created: stack.Summarize(created, dep), Engines: stack.Engines(created, logs, metrics)}
+		side := &stackSide{Created: stack.Summarize(composed, created, dep), Engines: stack.Engines(created, logs, metrics)}
 		for _, o := range composed {
 			side.Composed = append(side.Composed, composedItem{APIVersion: o.APIVersion(), Kind: o.Kind(), Name: o.Name()})
 		}
@@ -189,11 +196,12 @@ func (s *Server) stackState(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
+	unreadable := s.stacks.unreadable
 	switch st.Phase {
 	case poll.Deploying:
-		writeJSON(w, http.StatusOK, map[string]any{"audience": s.stacks.sides["audience"]})
+		writeJSON(w, http.StatusOK, map[string]any{"audience": s.stacks.sides["audience"], "unreadable": unreadable})
 	case poll.Race:
-		writeJSON(w, http.StatusOK, map[string]any{"optimized": s.stacks.sides["optimized"], "audience": s.stacks.sides["audience"], "pairs": s.stacks.pairs})
+		writeJSON(w, http.StatusOK, map[string]any{"optimized": s.stacks.sides["optimized"], "audience": s.stacks.sides["audience"], "pairs": s.stacks.pairs, "unreadable": unreadable})
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}

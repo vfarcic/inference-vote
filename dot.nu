@@ -188,6 +188,7 @@ def --env "main setup app" [
     # The voting app and the image pre-puller, on the inference cluster.
     open --raw k8s/vote.yaml | str replace --all $IMAGE $image
         | kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename -
+    resources role | kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename -
     kubectl --kubeconfig $WORKLOAD_KUBECONFIG apply --filename k8s/prepull.yaml
 
     # The voting app waits for its Secret, which needs the domain, which on
@@ -368,6 +369,30 @@ aws_secret_access_key = ($creds.aws_secret_access_key)
         }
     } | to yaml | kubectl apply --filename -
 
+}
+
+# The ClusterRole that lets the voting app list every kind in every API group
+# the inference cluster serves but the core one, custom resources included, so
+# it can show everything a deployment became. The core kinds, all but Secrets,
+# are in k8s/vote.yaml: RBAC can't grant every group except one.
+def "resources role" [] {
+    let groups = (
+        kubectl --kubeconfig $WORKLOAD_KUBECONFIG api-versions
+            | lines | where { |v| $v | str contains "/" }
+            | each { |v| $v | split row "/" | first } | uniq | sort
+    )
+    ({
+        apiVersion: "rbac.authorization.k8s.io/v1"
+        kind: ClusterRole
+        metadata: { name: "inference-vote-resources" }
+        rules: [{ apiGroups: $groups, resources: ["*"], verbs: ["list"] }]
+    } | to yaml) + "---\n" + ({
+        apiVersion: "rbac.authorization.k8s.io/v1"
+        kind: ClusterRoleBinding
+        metadata: { name: "inference-vote-resources" }
+        roleRef: { apiGroup: "rbac.authorization.k8s.io", kind: ClusterRole, name: "inference-vote-resources" }
+        subjects: [{ kind: ServiceAccount, name: "inference-vote", namespace: "inference-vote" }]
+    } | to yaml)
 }
 
 # How many nodes each GPU pool needs

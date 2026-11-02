@@ -130,10 +130,15 @@ func TestFoldKeepsKindAndAPIVersion(t *testing.T) {
 
 func TestSummarize(t *testing.T) {
 	_, aud := load(t)
-	_, created := Split(aud)
-	var claims, pods int
-	for _, c := range Summarize(created, "audience") {
+	composed, created := Split(aud)
+	var claims, pods, secrets int
+	for _, c := range Summarize(composed, created, "audience") {
 		switch c.Kind {
+		case "Secret":
+			secrets++
+			if c.Name != "audience-public-7d752-client-cfb42" {
+				t.Errorf("secret %q, want the Certificate's", c.Name)
+			}
 		case "ResourceClaim":
 			claims++
 			if len(c.Facts) != 1 || !strings.HasPrefix(c.Facts[0], "gpu-") {
@@ -143,8 +148,8 @@ func TestSummarize(t *testing.T) {
 			pods++
 		}
 	}
-	if claims != 2 || pods != 3 { // two engine copies, one endpoint picker
-		t.Errorf("claims %d, pods %d", claims, pods)
+	if claims != 2 || pods != 3 || secrets != 1 { // two engine copies, one endpoint picker, the client certificate
+		t.Errorf("claims %d, pods %d, secrets %d", claims, pods, secrets)
 	}
 }
 

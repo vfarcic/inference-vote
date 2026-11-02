@@ -16,46 +16,22 @@ metadata:
   namespace: inference-vote
 ---
 # Read-only: the engines' pods and logs, to show them coming up and say why one
-# crashed, and the kinds of resources Modelplane composes and controllers
-# create from them, to show what each deployment became. Never Secrets.
+# crashed, and the core kinds of resources a deployment can become, to show
+# what it did: every core kind but Secrets, which hold credentials. The other
+# API groups, custom resources included, are in the inference-vote-resources
+# ClusterRole that setup writes from the cluster's own API groups, since RBAC
+# can't grant every group but the core one.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: inference-vote
 rules:
 - apiGroups: [""]
-  resources: ["pods", "services", "configmaps", "serviceaccounts"]
+  resources: ["pods", "services", "configmaps", "serviceaccounts", "endpoints", "persistentvolumeclaims", "podtemplates", "replicationcontrollers", "limitranges", "resourcequotas"]
   verbs: ["list"]
 - apiGroups: [""]
   resources: ["pods/log"]
   verbs: ["get"]
-- apiGroups: ["apps"]
-  resources: ["deployments", "replicasets"]
-  verbs: ["list"]
-- apiGroups: ["discovery.k8s.io"]
-  resources: ["endpointslices"]
-  verbs: ["list"]
-- apiGroups: ["resource.k8s.io"]
-  resources: ["resourceclaims", "resourceclaimtemplates"]
-  verbs: ["list"]
-- apiGroups: ["inference.networking.k8s.io"]
-  resources: ["inferencepools"]
-  verbs: ["list"]
-- apiGroups: ["gateway.networking.k8s.io"]
-  resources: ["httproutes"]
-  verbs: ["list"]
-- apiGroups: ["gateway.envoyproxy.io"]
-  resources: ["backends", "httproutefilters"]
-  verbs: ["list"]
-- apiGroups: ["aigateway.envoyproxy.io"]
-  resources: ["aigatewayroutes", "aiservicebackends"]
-  verbs: ["list"]
-- apiGroups: ["cert-manager.io"]
-  resources: ["certificates", "certificaterequests"]
-  verbs: ["list"]
-- apiGroups: ["rbac.authorization.k8s.io"]
-  resources: ["roles", "rolebindings"]
-  verbs: ["list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
