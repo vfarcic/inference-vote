@@ -745,6 +745,14 @@ def --env "main destroy" [
         }
     }
     kubectl delete inferencecluster vote --ignore-not-found --timeout=60m
+    # AWS reservations bill until cancelled, cluster or not, so they go now
+    # rather than after a wait that may give up. Cancelling one doesn't stop
+    # the instances it holds; Crossplane deletes those.
+    if $provider == "aws" and ("AWS_RESERVATIONS" in $env) {
+        for id in ($env.AWS_RESERVATIONS | split row ",") {
+            aws ec2 cancel-capacity-reservation --region $env.AWS_RESERVATION_REGION --capacity-reservation-id $id | ignore
+        }
+    }
 
     # Deleting the InferenceCluster returns once Crossplane has accepted it;
     # the cloud resources go afterwards. Deleting kind before they do would
@@ -767,13 +775,6 @@ def --env "main destroy" [
     if $provider == "google" and ("PROJECT_ID" in $env) {
         gcloud projects delete $env.PROJECT_ID --quiet
     }
-    # AWS reservations bill until cancelled, cluster or not.
-    if $provider == "aws" and ("AWS_RESERVATIONS" in $env) {
-        for id in ($env.AWS_RESERVATIONS | split row ",") {
-            aws ec2 cancel-capacity-reservation --region $env.AWS_RESERVATION_REGION --capacity-reservation-id $id | ignore
-        }
-    }
-
     kind delete cluster --name $KIND_CLUSTER
 
     rm --force kubeconfig-kind.yaml $WORKLOAD_KUBECONFIG gcp-creds.json aws-creds.conf
@@ -783,11 +784,15 @@ def --env "main destroy" [
 
 # How many of Crossplane's cloud resources are left, or -1 if they couldn't be
 # counted, which must never pass for none. Modelplane's are namespaced, so
-# every namespace counts.
+# every namespace counts. Helm releases and Kubernetes objects live inside the
+# inference cluster and go with it; once it's gone Crossplane can't delete
+# them, so they aren't counted.
 def "cloud resources left" [] {
     let result = (kubectl get managed --all-namespaces --output name | complete)
     if $result.exit_code != 0 {
         return (-1)
     }
-    $result.stdout | lines | where { |l| $l != "" } | length
+    $result.stdout | lines
+        | where { |l| $l != "" and not ($l | str starts-with "release.helm.") and not ($l | str starts-with "object.kubernetes.") }
+        | length
 }
