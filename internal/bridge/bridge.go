@@ -86,15 +86,15 @@ func (b *Bridge) tick(ctx context.Context) error {
 		}
 		b.removed[name] = false
 		if config != b.applied[name] {
-			c, err := choice.Parse(config)
+			ready, err := b.replace(ctx, name, config)
 			if err != nil {
 				return err
 			}
-			if err := b.Kube.Apply(ctx, path("modeldeployments", name), choice.Deployment(name, c, b.Options)); err != nil {
-				return fmt.Errorf("applying %s as %s: %w", config, name, err)
+			if !ready {
+				// The last session's is still going: report it as not applied yet.
+				reports[name] = Report{Conditions: []string{"Replacing the last session's deployment"}}
+				continue
 			}
-			log.Printf("bridge: applied %s as %s/%s", config, choice.Namespace, name)
-			b.applied[name] = config
 		}
 		r, err := b.status(ctx, name)
 		if err != nil {
@@ -103,6 +103,47 @@ func (b *Bridge) tick(ctx context.Context) error {
 		reports[name] = r
 	}
 	return b.report(ctx, reports)
+}
+
+// replace makes a deployment hold config, and reports whether it does. A
+// deployment holding another config, left from an earlier session, is deleted
+// first rather than updated: Modelplane would roll its engines, and a new
+// engine can't start while the old ones hold the nodes, since every engine
+// takes a node to itself. Its status would also say ready, from the old ones.
+// Deleting takes a few ticks; until the old one is gone, this reports false.
+func (b *Bridge) replace(ctx context.Context, name, config string) (bool, error) {
+	var existing struct {
+		Metadata struct {
+			Labels            map[string]string `json:"labels"`
+			DeletionTimestamp *string           `json:"deletionTimestamp"`
+		} `json:"metadata"`
+	}
+	err := b.Kube.Get(ctx, path("modeldeployments", name), &existing)
+	switch {
+	case kube.NotFound(err):
+		c, err := choice.Parse(config)
+		if err != nil {
+			return false, err
+		}
+		if err := b.Kube.Apply(ctx, path("modeldeployments", name), choice.Deployment(name, c, b.Options)); err != nil {
+			return false, fmt.Errorf("applying %s as %s: %w", config, name, err)
+		}
+		log.Printf("bridge: applied %s as %s/%s", config, choice.Namespace, name)
+		b.applied[name], b.poked[name] = config, ""
+		return true, nil
+	case err != nil:
+		return false, err
+	case existing.Metadata.DeletionTimestamp != nil:
+		return false, nil // still going
+	case existing.Metadata.Labels["inference-vote/config"] == config:
+		b.applied[name] = config // already there, from before a restart
+		return true, nil
+	}
+	if err := b.Kube.Delete(ctx, path("modeldeployments", name)); err != nil {
+		return false, fmt.Errorf("removing %s's last config: %w", name, err)
+	}
+	log.Printf("bridge: %s/%s held %s; removing it before applying %s", choice.Namespace, name, existing.Metadata.Labels["inference-vote/config"], config)
+	return false, nil
 }
 
 func (b *Bridge) desired(ctx context.Context) (map[string]string, bool, error) {

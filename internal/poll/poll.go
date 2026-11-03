@@ -348,7 +348,7 @@ func (p *Poll) ReportControlPlane(name string, applied bool, ready, total int, c
 }
 
 // ReportPods records a deployment's engine pods as the app's own cluster sees
-// them.
+// them: only those running its current config.
 func (p *Poll) ReportPods(name string, pods []PodState) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -361,24 +361,22 @@ func (p *Poll) ReportPods(name string, pods []PodState) {
 	p.changed()
 }
 
-// promote marks a deployment's engines ready once every engine pod is, or the
-// control plane says the replica is. Either is enough: the pods are the faster
-// signal, the replica the authoritative one. Ready engines are not yet serving:
-// that takes the gateway's route, which MarkServing confirms.
+// promote marks a deployment's engines ready once every one of its engine
+// pods is. Only the pods count: the control plane says a replica is ready
+// while engines of an earlier config still serve, and the pods reported are
+// only those running the deployment's current config. Ready engines are not
+// yet serving: that takes the gateway's route, which MarkServing confirms.
 func (p *Poll) promote(d *Deployment) {
 	if d.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
 		return
 	}
-	pr := d.Progress
-	podsReady := len(pr.Pods) > 0
-	for _, pod := range pr.Pods {
+	ready := len(d.Progress.Pods) > 0
+	for _, pod := range d.Progress.Pods {
 		if pod.Step != "ready" {
-			podsReady = false
+			ready = false
 		}
 	}
-	if podsReady || (pr.ReplicasTotal > 0 && pr.ReplicasReady == pr.ReplicasTotal) {
-		d.EnginesReady = true
-	}
+	d.EnginesReady = ready
 }
 
 // MarkServing records that the gateway answered for a deployment. Once

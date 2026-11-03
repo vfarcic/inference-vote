@@ -197,3 +197,14 @@ func TestSnapshotsDontChange(t *testing.T) {
 		t.Fatal("a report changed an earlier snapshot")
 	}
 }
+
+// The control plane says a replica is ready while an earlier config's engines
+// still serve, so only the pods make a deployment's engines ready.
+func TestTheReplicaAloneIsNotReady(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
+	p.ReportControlPlane("audience", true, 1, 1, []string{"Ready=True"})
+	if d, _ := p.Snapshot().Deployment("audience"); d.EnginesReady {
+		t.Fatal("ready on the control plane's word alone")
+	}
+}

@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -321,7 +322,14 @@ func (s *Server) WatchPods(ctx context.Context) {
 			continue
 		}
 		pods := map[string][]poll.PodState{poll.AudienceName: {}, poll.OppositeName: {}}
+		st := s.poll.Snapshot()
 		for _, p := range list.Items {
+			dep := p.Metadata.Labels["modelplane.ai/deployment"]
+			// Engines of an earlier session's config, still shutting down,
+			// aren't this deployment's: their being ready says nothing.
+			if d, ok := st.Deployment(dep); !ok || !s.runs(p, d.Config) {
+				continue
+			}
 			state := poll.PodState{Name: p.Metadata.Name, Step: p.step()}
 			if len(p.Status.ContainerStatuses) > 0 {
 				state.Restarts = p.Status.ContainerStatuses[0].RestartCount
@@ -329,13 +337,22 @@ func (s *Server) WatchPods(ctx context.Context) {
 			if state.Restarts > 0 {
 				state.Reason = s.crashReason(ctx, p, state.Restarts)
 			}
-			dep := p.Metadata.Labels["modelplane.ai/deployment"]
 			pods[dep] = append(pods[dep], state)
 		}
 		for dep, list := range pods {
 			s.poll.ReportPods(dep, list)
 		}
 	}
+}
+
+// runs reports whether an engine pod runs a config: its vLLM flags are the
+// ones the config renders to.
+func (s *Server) runs(p pod, config string) bool {
+	c, err := choice.Parse(config)
+	if err != nil || len(p.Spec.Containers) == 0 {
+		return false
+	}
+	return slices.Equal(p.Spec.Containers[0].Args, choice.Args(c, s.cfg.Options))
 }
 
 type podList struct {
@@ -349,7 +366,10 @@ type pod struct {
 		Labels    map[string]string `json:"labels"`
 	} `json:"metadata"`
 	Spec struct {
-		NodeName string `json:"nodeName"`
+		NodeName   string `json:"nodeName"`
+		Containers []struct {
+			Args []string `json:"args"`
+		} `json:"containers"`
 	} `json:"spec"`
 	Status struct {
 		PodIP             string `json:"podIP"`

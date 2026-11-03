@@ -94,3 +94,16 @@ func TestLineup(t *testing.T) {
 		}
 	}
 }
+
+// Engines left from an earlier config aren't the deployment's.
+func TestRuns(t *testing.T) {
+	s := &Server{}
+	c, _ := choice.Parse("BBA")
+	var p pod
+	p.Spec.Containers = append(p.Spec.Containers, struct {
+		Args []string `json:"args"`
+	}{Args: choice.Args(c, choice.Options{})})
+	if !s.runs(p, "BBA") || s.runs(p, "BBB") || s.runs(pod{}, "BBA") {
+		t.Error("runs should match a pod's flags to its config, and nothing else")
+	}
+}
