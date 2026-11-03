@@ -431,8 +431,10 @@ def platform [provider: string, zone: string, pools: record] {
 }
 
 # Regions setup tries on AWS, in order. Every zone in them that offers both
-# instance types is a candidate.
-const AWS_REGIONS = [us-east-1 us-east-2 us-west-2]
+# instance types is a candidate. Nearest to the stage first; the rest are there
+# because L4s run out across whole continents. eu-north-1 offers them too, but
+# this account has no G quota there, which would stop the search.
+const AWS_REGIONS = [us-east-1 us-east-2 us-west-2 ca-central-1 eu-central-1 eu-west-2 eu-west-3 sa-east-1 ap-northeast-1 ap-northeast-2 ap-south-1 ap-southeast-2]
 
 # The AWS counterpart of `reserve gpus`: holds both pools' nodes in one zone
 #

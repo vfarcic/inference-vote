@@ -211,7 +211,9 @@ Not verified yet:
 
 AWS has no two-L4 instance, so it runs two pools: one-L4 `g6.2xlarge` nodes for
 copies and a four-L4 `g6.12xlarge` for one engine split across two GPUs. Setup
-reserves both in the first zone of us-east-1, us-east-2 or us-west-2 that has
-them, and destroy cancels the reservations, which otherwise bill on their own.
+reserves both in the first zone that has them: the US, Canada and Europe
+first, then South America and Asia, where L4s were still free when the American
+and European ones had run out. Destroy cancels the reservations, which
+otherwise bill on their own.
 It needs a G-instance vCPU quota of 80 and an access key: setup asks for it
 unless `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set.
