@@ -27,9 +27,9 @@ import (
 type Config struct {
 	GatewayURL string
 	Key        string
-	Targets    []string // ModelService names, each gets the same workload
-	Agents     int      // concurrent agents per target
-	Duration   time.Duration
+	Targets    []string      // ModelService names, each gets the same workload
+	Agents     int           // concurrent agents per target
+	Duration   time.Duration // 0 runs until the context ends: the race's load stops only on a reset
 	MaxTokens  int
 	Seed       int64
 }
@@ -119,12 +119,17 @@ func (v View) String() string {
 }
 
 // Start runs the workload against one target in the background, for
-// cfg.Duration, and returns its live totals. Each agent's sequence of requests
+// cfg.Duration or, when that is 0, until ctx ends, and returns its live totals. Each agent's sequence of requests
 // is seeded by its index, so agent n sends the same conversation to every
 // target, whenever each target starts.
 func Start(ctx context.Context, cfg Config, target string) *Stats {
 	s := &Stats{target: target, started: time.Now()}
-	ctx, cancel := context.WithTimeout(ctx, cfg.Duration)
+	var cancel context.CancelFunc
+	if cfg.Duration > 0 {
+		ctx, cancel = context.WithTimeout(ctx, cfg.Duration)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
 	var wg sync.WaitGroup
 	for a := 0; a < cfg.Agents; a++ {
 		wg.Add(1)

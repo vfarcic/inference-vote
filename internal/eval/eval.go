@@ -1,12 +1,16 @@
 // Package eval measures answer quality, the other half of question 1: FP8 buys
 // room for more conversations, and this is where it would show what it costs.
 //
-// It sends the same grade-school math problems (GSM8K, MIT licensed, see
-// LICENSE-gsm8k) to a deployment at temperature 0 and checks each final number.
-// Math is where quantization loses accuracy first, and a number is graded
-// without anyone's judgement. Questions 2 and 3 are lossless, so any difference
-// in score comes from question 1, or from noise: a point or two either way on
-// 200 problems is within it.
+// It sends the same competition math problems (the MATH-500 split of MATH, MIT
+// licensed, see LICENSE-math) to a deployment at temperature 0 and checks each
+// final number. Math is where quantization loses accuracy first, and a number
+// is graded without anyone's judgement. Grade-school math (GSM8K), used before,
+// is easy enough for this model that a small loss from FP8 would hardly show.
+// Only the 311 problems whose answer is a whole number are here, so grading
+// never has to compare fractions or expressions.
+//
+// Questions 2 and 3 are lossless, so any difference in score comes from
+// question 1, or from noise: about three points either way on 311 problems.
 package eval
 
 import (
@@ -26,15 +30,16 @@ import (
 	"github.com/vfarcic/inference-vote/internal/gateway"
 )
 
-//go:embed gsm8k.jsonl
+//go:embed math.jsonl
 var data []byte
 
 type Problem struct {
 	Question string `json:"q"`
 	Answer   string `json:"a"`
+	Level    int    `json:"level"` // MATH's difficulty, 1 to 5
 }
 
-// Problems are the first 200 of the GSM8K test set.
+// Problems are MATH-500's, in its order, levels mixed.
 var Problems = func() []Problem {
 	var ps []Problem
 	s := bufio.NewScanner(bytes.NewReader(data))
@@ -52,7 +57,7 @@ var Problems = func() []Problem {
 type Config struct {
 	GatewayURL string
 	Key        string
-	Problems   int // how many of the 200; 0 disables
+	Problems   int // how many of them; 0 disables
 	Workers    int // concurrent requests per deployment, kept low so it barely loads the GPUs
 }
 
@@ -149,13 +154,13 @@ func Start(ctx context.Context, cfg Config, target string) *Score {
 	return s
 }
 
-const instruction = "Solve the problem step by step. End with a final line in the form \"Answer: <number>\".\n\n"
+const instruction = "Solve the problem step by step. The answer is a whole number. End with a final line in the form \"Answer: <number>\".\n\n"
 
 func ask(ctx context.Context, client *http.Client, cfg Config, target, question string) (string, error) {
 	a, err := gateway.Chat(ctx, client, cfg.GatewayURL, cfg.Key, map[string]any{
 		"model":       "ml-team/" + target,
 		"messages":    []map[string]string{{"role": "user", "content": instruction + question}},
-		"max_tokens":  512,
+		"max_tokens":  1024, // competition problems take longer working than grade-school ones
 		"temperature": 0,
 	})
 	if err != nil {
@@ -165,16 +170,21 @@ func ask(ctx context.Context, client *http.Client, cfg Config, target, question 
 }
 
 var (
-	answerLine = regexp.MustCompile(`(?i)answer:\s*\**\s*\$?\s*(-?[0-9][0-9,]*(?:\.[0-9]+)?)`)
+	answerLine = regexp.MustCompile(`(?i)answer:\s*\**\s*\$*\s*(?:\\boxed\{)?\s*(-?[0-9][0-9,]*(?:\.[0-9]+)?)`)
+	boxed      = regexp.MustCompile(`\\boxed\{\s*(-?[0-9][0-9,]*(?:\.[0-9]+)?)\s*\}`)
 	anyNumber  = regexp.MustCompile(`-?[0-9][0-9,]*(?:\.[0-9]+)?`)
 )
 
 // Correct compares the reply's final number with the expected one. It takes the
-// number after the last "Answer:", or failing that the last number anywhere,
-// since a model that skips the format but gets it right should still count.
+// number after the last "Answer:", failing that the last \boxed{}, which is
+// how math-trained models mark an answer, and failing that the last number
+// anywhere, since a model that skips the format but gets it right should still
+// count.
 func Correct(reply, expected string) bool {
 	var got string
 	if m := answerLine.FindAllStringSubmatch(reply, -1); len(m) > 0 {
+		got = m[len(m)-1][1]
+	} else if m := boxed.FindAllStringSubmatch(reply, -1); len(m) > 0 {
 		got = m[len(m)-1][1]
 	} else if m := anyNumber.FindAllString(reply, -1); len(m) > 0 {
 		got = m[len(m)-1]

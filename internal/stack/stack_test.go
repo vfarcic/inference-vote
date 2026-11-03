@@ -69,7 +69,7 @@ func TestCompare(t *testing.T) {
 	oc, _ := Split(opt)
 	ac, _ := Split(aud)
 	states := map[string]Pair{}
-	for _, p := range Compare(oc, ac) {
+	for _, p := range Compare("optimized", oc, "audience", ac) {
 		states[p.Kind+" "+p.Key] = p
 	}
 	if len(states) != 15 {
@@ -119,7 +119,7 @@ func TestFoldKeepsKindAndAPIVersion(t *testing.T) {
 	opt, aud := load(t)
 	oc, _ := Split(opt)
 	ac, _ := Split(aud)
-	for _, p := range Compare(oc, ac) {
+	for _, p := range Compare("optimized", oc, "audience", ac) {
 		for _, r := range p.Rows {
 			if r.Kind == "fold" && (strings.Contains(r.Left, "apiVersion") || strings.Contains(r.Left, "kind:")) {
 				t.Errorf("%s %s: folded %q", p.Kind, p.Key, r.Left)

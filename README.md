@@ -1,7 +1,9 @@
 # inference-vote
 
-The audience votes on how to serve a model, Modelplane deploys what they picked,
-and it races an optimized deployment on the same hardware.
+The audience votes on how to serve a model, Modelplane deploys what they picked
+and its opposite, every answer flipped, and the three race on the same
+hardware: the pick, the opposite, which the room can beat, and an optimized
+deployment.
 
 Three questions, each one an inference concept:
 
@@ -23,34 +25,43 @@ vLLM. `inference-vote render --config BBA` prints any of them.
  | Modelplane           | -----------> |   optimized ModelDeployment  (2 GPUs)    |
  | bridge  ------------------ polls ---->  voting app  <---- phones (QR code)     |
  |   applies the        |  (outbound   |   audience ModelDeployment   (2 GPUs)    |
- |   audience's pick    |   HTTPS)     |   InferenceGateway  <- chat, load test   |
+ |   audience's pick    |   HTTPS)     |   opposite ModelDeployment   (2 GPUs)    |
+ |   and its opposite   |              |   InferenceGateway  <- chat, load test   |
  +----------------------+              |   OpenTelemetry collector -> Datadog     |
                                        +------------------------------------------+
 ```
 
 - **The control plane is kind on the presenter's laptop.** Nothing on the
   internet can reach it, so the bridge reaches out: it polls the voting app for
-  the winning config, applies the `ModelDeployment`, and reports its status
-  back. Only outbound HTTPS, so a phone's hotspot is a working fallback.
+  the winning config and its opposite, applies their `ModelDeployment`s, and
+  reports their status back. Only outbound HTTPS, so a phone's hotspot is a working fallback.
 - **The voting app** runs on the inference cluster, at
   `https://<load balancer IP>.nip.io`. It gets its own Let's Encrypt
   certificate and keeps it in a Secret, so a restart reuses it. Phones never
   navigate: the page follows whatever the presenter advances to.
 - **The optimized config stays hidden until the race**, so the room votes on
   the questions rather than against an answer key.
-- **If the audience picks exactly the optimized config**, the opposite is
-  deployed instead, so there is still something to compare. Ties go against the
-  optimized answer for the same reason.
+- **The opposite of the audience's pick races too**, so the room has a race
+  it can win: against the optimized config it can at best tie. The pick and
+  its opposite differ in every answer. When either is exactly the optimized
+  config, it isn't deployed twice: the optimized deployment plays both parts,
+  and three columns become two. Ties go against the optimized answer, so a
+  split room still produces something worth comparing.
 - **The race** is the last screen. When the presenter starts it, a load test
-  (100 coding agents for 12 minutes) and an accuracy test (200 GSM8K math
-  problems) start against every deployment that serves; the audience's joins
-  whenever it comes up. The screen shows live numbers for each, audience chat
-  and load test counted apart, and the two manifests side by side, line by line.
+  (100 coding agents, running until a reset or until the cluster is gone) and
+  an accuracy test (311 competition math problems) start against every
+  deployment that serves; the audience's two join whenever they come up. The
+  screen says who is ahead right now, by requests completed per minute: the
+  pick against its opposite in big letters, and against the optimized config
+  below. It shows live numbers for each, audience chat and load test counted
+  apart, and the manifests the app applied side by side, line by line, with a
+  comment on what each setting does.
 - **Modelplane counts capacity in whole nodes, not GPUs**
   ([modelplane#172](https://github.com/modelplaneai/modelplane/issues/172)):
-  each engine pod takes a node to itself. Setup sizes the GPU pool for it: 3
-  nodes when the optimized config is one engine across both GPUs, 4 when it is
-  two copies.
+  each engine pod takes a node to itself. Setup sizes the GPU pool for it: the
+  pick and its opposite take three nodes between them (one engine split across
+  two GPUs, and two copies), plus one for the optimized config when it is one
+  engine, or two when it is two copies.
 
 ## Before the talk
 
@@ -119,7 +130,7 @@ included.
 ./dot.nu reset
 ```
 
-It removes the audience's deployment and clears every vote.
+It removes the audience's deployments and clears every vote.
 
 ## On stage
 
@@ -128,21 +139,21 @@ QR code. **Next** (or the right arrow, or a clicker):
 
 1. opens question 1,
 2. closes each question and opens the next, with the bars live as votes come in,
-3. after the third, applies the result and shows it deploying: the engines
-   loading, then the gateway waiting for Modelplane's route, which takes a few
-   minutes more,
-4. starts the race, whether or not the audience's deployment serves yet. If it
-   crashed, its column says why; the race goes on with the optimized one.
+3. after the third, applies the result and its opposite and shows them
+   deploying: the engines loading, then the gateway waiting for Modelplane's
+   route, which takes a few minutes more,
+4. starts the race, whether or not the audience's deployments serve yet. If one
+   crashed, its column says why; the race goes on with the rest.
 5. during the race, shows the results so far, and again refreshes them. The
-   app decides who won each measure, a margin under 10% being a tie; the
-   optimized model explains why, from the numbers and what the engines
-   reported, in a few seconds even under the load test. The tests keep
-   running, and the results also come on their own when they finish, after 12
-   minutes.
+   app decides who won each measure, a margin under 10% over the runner-up
+   being a tie; the optimized model explains why, from the numbers and what the
+   engines reported, in a few seconds even under the load test. The tests keep
+   running: the load until a reset, the accuracy test until its 311 problems are
+   done.
 
-If the room picks exactly the optimized config, the opposite of every answer
-races it instead: their pick is the optimized one, and the other side is called
-unoptimized.
+If the room picks exactly the optimized config, its column says so and races
+the opposite alone; if the opposite is exactly the optimized config, that
+column says so instead.
 
 **Reset** needs two clicks.
 

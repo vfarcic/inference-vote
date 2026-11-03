@@ -1,5 +1,5 @@
 # What both clouds share: the gateway the audience and the load test call,
-# the two models they can name, and where the metrics go.
+# the three models they can name, and where the metrics go.
 #
 # The optimized ModelDeployment is not in here. The setup renders it with
 # `inference-vote render`, the same code the bridge uses for the audience's, so
@@ -25,7 +25,8 @@ spec:
         matchLabels:
           inference-vote/keys: "true"
 ---
-# Callers name these as ml-team/optimized and ml-team/audience.
+# Callers name these as ml-team/optimized, ml-team/audience and
+# ml-team/opposite: the audience's pick with every answer flipped.
 #
 # idle bounds how long the gateway waits for a streamed answer's first token
 # before it abandons the attempt and runs the request again. The 60-second
@@ -62,3 +63,18 @@ spec:
     selector:
       matchLabels:
         modelplane.ai/deployment: audience
+---
+apiVersion: modelplane.ai/v1alpha1
+kind: ModelService
+metadata:
+  name: opposite
+  namespace: ml-team
+spec:
+  timeouts:
+    idle: 180s
+    request: 300s
+  endpoints:
+  - name: opposite
+    selector:
+      matchLabels:
+        modelplane.ai/deployment: opposite

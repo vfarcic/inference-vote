@@ -1,6 +1,7 @@
 package poll
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/vfarcic/inference-vote/internal/choice"
@@ -38,19 +39,50 @@ func TestMajorityWins(t *testing.T) {
 		{choice.A, choice.B, choice.A},
 		{choice.B, choice.B, choice.A},
 	})
-	if s.Phase != Deploying || s.Audience != "AAB" || s.Deployed != "AAB" || s.Swapped {
-		t.Fatalf("got phase %s audience %s deployed %s swapped %v", s.Phase, s.Audience, s.Deployed, s.Swapped)
+	if s.Phase != Deploying || s.Audience != "AAB" || s.Opposite != "BBA" || s.AudienceIsOptimized || !s.OppositeIsOptimized {
+		t.Fatalf("got %+v", s)
 	}
-	if c, ok := p.Desired(); !ok || c.String() != "AAB" {
-		t.Fatalf("Desired = %v %v", c, ok)
+	// BBA is the optimized config, already running: only the pick deploys.
+	want := map[string]string{"audience": "AAB"}
+	if got := desired(t, p); !maps.Equal(got, want) {
+		t.Fatalf("Desired = %v, want %v", got, want)
+	}
+	if s.Serves("opposite") != "optimized" || s.Serves("audience") != "audience" {
+		t.Fatalf("serves: audience by %s, opposite by %s", s.Serves("audience"), s.Serves("opposite"))
 	}
 }
 
-func TestPickingTheOptimizedDeploysTheOpposite(t *testing.T) {
+func desired(t *testing.T, p *Poll) map[string]string {
+	t.Helper()
+	d, ok := p.Desired()
+	if !ok {
+		t.Fatal("nothing desired")
+	}
+	out := map[string]string{}
+	for name, c := range d {
+		out[name] = c.String()
+	}
+	return out
+}
+
+func TestThePickAndItsOppositeBothDeploy(t *testing.T) {
+	p := New(mustParse(t, "BAA"))
+	s := run(t, p, [3][]choice.Option{{choice.B}, {choice.B}, {choice.A}})
+	want := map[string]string{"audience": "BBA", "opposite": "AAB"}
+	if got := desired(t, p); !maps.Equal(got, want) || len(s.Deployments) != 2 || s.Deployments[0].Name != "audience" {
+		t.Fatalf("Desired = %v, deployments %+v", got, s.Deployments)
+	}
+}
+
+func TestPickingTheOptimizedDeploysOnlyTheOpposite(t *testing.T) {
 	p := New(mustParse(t, "BBA"))
 	s := run(t, p, [3][]choice.Option{{choice.B}, {choice.B}, {choice.A}})
-	if s.Audience != "BBA" || s.Deployed != "AAB" || !s.Swapped {
-		t.Fatalf("audience %s deployed %s swapped %v", s.Audience, s.Deployed, s.Swapped)
+	if !s.AudienceIsOptimized || s.Serves("audience") != "optimized" {
+		t.Fatalf("got %+v", s)
+	}
+	want := map[string]string{"opposite": "AAB"}
+	if got := desired(t, p); !maps.Equal(got, want) {
+		t.Fatalf("Desired = %v, want %v", got, want)
 	}
 }
 
@@ -90,18 +122,23 @@ func TestVotesOutsideTheOpenQuestionAreIgnored(t *testing.T) {
 func TestServingWhenPodsAre(t *testing.T) {
 	p := New(mustParse(t, "BBA"))
 	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
-	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "loading model"}})
-	p.MarkServing()
-	if s := p.Snapshot(); s.EnginesReady || s.Serving {
+	get := func() Deployment { d, _ := p.Snapshot().Deployment("audience"); return d }
+	p.ReportPods("audience", []PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "loading model"}})
+	p.MarkServing("audience")
+	if d := get(); d.EnginesReady || d.Serving {
 		t.Fatal("ready or serving before every pod was")
 	}
-	p.ReportPods([]PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "ready"}})
-	if s := p.Snapshot(); !s.EnginesReady || s.Serving {
+	p.ReportPods("audience", []PodState{{Name: "a", Step: "ready"}, {Name: "b", Step: "ready"}})
+	if d := get(); !d.EnginesReady || d.Serving {
 		t.Fatal("ready engines should not count as serving before the gateway answers")
 	}
-	p.MarkServing()
-	if s := p.Snapshot(); !s.Serving || s.Phase != Deploying {
-		t.Fatal("not serving after the gateway answered, or the race started on its own")
+	p.MarkServing("audience")
+	if s := p.Snapshot(); !s.Serving("audience") || s.Serving("opposite") || s.Phase != Deploying {
+		t.Fatal("not serving after the gateway answered, the opposite serving with it, or the race started on its own")
+	}
+	// The opposite here is BBB, its own deployment, with its own progress.
+	if !p.Snapshot().Serving("optimized") {
+		t.Fatal("the optimized deployment always serves")
 	}
 }
 
@@ -114,9 +151,9 @@ func TestTheRaceStartsWithoutTheAudiencesDeployment(t *testing.T) {
 	if p.Next() {
 		t.Fatal("advanced past the race")
 	}
-	p.ReportPods([]PodState{{Name: "a", Step: "ready"}})
-	p.MarkServing()
-	if !p.Snapshot().Serving {
+	p.ReportPods("audience", []PodState{{Name: "a", Step: "ready"}})
+	p.MarkServing("audience")
+	if !p.Snapshot().Serving("audience") {
 		t.Fatal("a deployment that comes up during the race should still count as serving")
 	}
 }
@@ -134,17 +171,29 @@ func TestResetStartsANewSession(t *testing.T) {
 // count as one: it closed the keyboard on phones mid-typing.
 func TestUnchangedReportsAreNotChanges(t *testing.T) {
 	p := New(mustParse(t, "BBA"))
+	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
 	pods := []PodState{{Name: "a", Step: "loading model"}}
-	p.ReportPods(pods)
-	p.ReportControlPlane(true, 0, 1, []string{"Ready=False"})
+	p.ReportPods("audience", pods)
+	p.ReportControlPlane("audience", true, 0, 1, []string{"Ready=False"})
 	v := p.Snapshot().Version
-	p.ReportPods([]PodState{{Name: "a", Step: "loading model"}})
-	p.ReportControlPlane(true, 0, 1, []string{"Ready=False"})
+	p.ReportPods("audience", []PodState{{Name: "a", Step: "loading model"}})
+	p.ReportControlPlane("audience", true, 0, 1, []string{"Ready=False"})
 	if p.Snapshot().Version != v {
 		t.Fatal("an unchanged report counted as a change")
 	}
-	p.ReportPods([]PodState{{Name: "a", Step: "ready"}})
+	p.ReportPods("audience", []PodState{{Name: "a", Step: "ready"}})
 	if p.Snapshot().Version == v {
 		t.Fatal("a changed report did not count")
+	}
+}
+
+// A snapshot is the caller's: later reports don't change it under them.
+func TestSnapshotsDontChange(t *testing.T) {
+	p := New(mustParse(t, "BBA"))
+	run(t, p, [3][]choice.Option{{choice.A}, {choice.A}, {choice.A}})
+	s := p.Snapshot()
+	p.ReportPods("opposite", []PodState{{Name: "a", Step: "ready"}})
+	if d, _ := s.Deployment("opposite"); len(d.Progress.Pods) != 0 {
+		t.Fatal("a report changed an earlier snapshot")
 	}
 }

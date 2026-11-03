@@ -23,17 +23,38 @@
   }
   const since = (t) => (t ? (Date.now() - new Date(t)) / 1000 : 0);
 
-  // What to call each side. When the room picks exactly the optimized config,
-  // that side is their pick, and the other is its opposite.
-  const names = (s) => (s && s.swapped
-    ? { optimized: "Your pick", audience: "Unoptimized" }
-    : { optimized: "Optimized", audience: "Your pick" });
+  // What to call each side. One deployment can be two of them: the room's
+  // pick, or its opposite, can be exactly the optimized config.
+  const roleLabels = { audience: "Audience pick", opposite: "Opposite", optimized: "Optimized" };
+  const label = (roles) => roles.map((r) => roleLabels[r]).join(" = ");
+
+  // The sides as the phones know them, from the poll's state: which deployment
+  // serves the pick, which its opposite, and the optimized one.
+  function sidesOf(s) {
+    const sides = [];
+    const add = (name, role) => {
+      const known = sides.find((x) => x.name === name);
+      if (known) { known.roles.push(role); return; }
+      const d = (s.deployments || []).find((x) => x.name === name);
+      sides.push({ name, roles: [role], serving: name === "optimized" || !!(d && d.serving) });
+    };
+    add(s.audienceIsOptimized ? "optimized" : "audience", "audience");
+    add(s.oppositeIsOptimized ? "optimized" : "opposite", "opposite");
+    add("optimized", "optimized");
+    return sides;
+  }
+
+  const deploymentLabel = (s, d) => (d.name === "audience" ? "Audience pick" : "Opposite");
 
   function deployingHTML(s) {
-    const head = s.swapped
-      ? `<h1>Deploying the opposite of your pick</h1><p class="note">You picked exactly the optimized configuration. It's already running, so the opposite of every answer races it.</p>`
-      : `<h1>Deploying your pick</h1>`;
-    return `${head}${summaryHTML(s.summary)}${progressHTML(s)}`;
+    const head = s.audienceIsOptimized
+      ? `<h1>Deploying the opposite of audience pick</h1><p class="note">Audience pick is exactly the optimized configuration. It's already running, so only its opposite, every answer flipped, deploys to race it.</p>`
+      : s.oppositeIsOptimized
+        ? `<h1>Deploying audience pick</h1><p class="note">Its opposite, every answer flipped, is exactly the optimized configuration, which is already running.</p>`
+        : `<h1>Deploying audience pick</h1><p class="muted">And its opposite, every answer flipped, for it to race.</p>`;
+    const deployments = (s.deployments || []).map((d) =>
+      `<section class="deploying"><h2>${deploymentLabel(s, d)} <span class="config">${esc(d.config)}</span></h2>${summaryHTML(d.summary)}${podsHTML(d.progress.pods, d.progress.applied)}${gatewayHTML(d)}</section>`).join("");
+    return `${head}<p class="muted">${clock(since(s.started))} since the votes closed</p><div class="deployments">${deployments}</div>`;
   }
 
   function tallyHTML(s, q) {
@@ -63,13 +84,9 @@
 
   // Ready engines still need Modelplane's gateway route before anyone can
   // reach them, which can take minutes; say so, or it looks stuck.
-  function gatewayHTML(s) {
-    if (!s.enginesReady) return "";
-    return `<ul class="steps"><li class="${s.serving ? "done" : ""}">Gateway: ${s.serving ? "answering" : "waiting for the route"}</li></ul>`;
-  }
-
-  function progressHTML(s) {
-    return `<p class="muted">${clock(since(s.started))} since the votes closed</p>${podsHTML(s.progress.pods, s.progress.applied)}${gatewayHTML(s)}`;
+  function gatewayHTML(d) {
+    if (!d || !d.enginesReady) return "";
+    return `<ul class="steps"><li class="${d.serving ? "done" : ""}">Gateway: ${d.serving ? "answering" : "waiting for the route"}</li></ul>`;
   }
 
   function summaryHTML(summary) {
@@ -80,38 +97,42 @@
 
   function audience(root) {
     let state = null;
-    const chats = { audience: [], optimized: [] };
-    let target = "audience";
+    const chats = { audience: [], opposite: [], optimized: [] };
+    let target = null; // the deployment being chatted with
 
     const vote = (q, option) =>
       fetch("/api/vote", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, option }) })
         .then((r) => r.json()).then(render);
 
-    // The chat is drawn once. After that only the messages and the "Your pick"
-    // tab change, in place: redrawing it would replace the field someone is
-    // typing in, and close their keyboard.
+    // The chat is drawn once. After that only the messages and which tabs
+    // can answer change, in place: redrawing it would replace the field
+    // someone is typing in, and close their keyboard.
     function logHTML() {
-      const log = chats[target].map((m) => `<div class="msg ${m.role}">${esc(m.content)}${m.meta ? `<span class="meta">${esc(m.meta)}</span>` : ""}</div>`).join("");
-      return log || `<p class="muted">Ask either one something, then ask the other.</p>`;
+      const log = (chats[target] || []).map((m) => `<div class="msg ${m.role}">${esc(m.content)}${m.meta ? `<span class="meta">${esc(m.meta)}</span>` : ""}</div>`).join("");
+      return log || `<p class="muted">Ask one of them something, then ask another.</p>`;
     }
 
     function updateChat(s) {
-      if (!s.serving && target === "audience") target = "optimized";
-      const mine = root.querySelector('[data-target="audience"]');
-      mine.disabled = !s.serving;
-      root.querySelectorAll("[data-target]").forEach((b) => b.classList.toggle("on", b.dataset.target === target));
-      root.querySelector(".not-serving").hidden = s.serving;
+      const sides = sidesOf(s);
+      const current = sides.find((x) => x.name === target);
+      // Start on the audience's pick, and move off a tab that stopped serving.
+      if (!current || !current.serving) target = (sides.find((x) => x.serving) || sides[0]).name;
+      root.querySelectorAll("[data-target]").forEach((b) => {
+        const side = sides.find((x) => x.name === b.dataset.target);
+        b.disabled = !side || !side.serving;
+        b.classList.toggle("on", b.dataset.target === target);
+      });
+      const waiting = sides.filter((x) => !x.serving).map((x) => label(x.roles));
+      const note = root.querySelector(".not-serving");
+      note.hidden = !waiting.length;
+      note.textContent = waiting.length ? `${waiting.join(" and ")} ${waiting.length === 1 ? "isn't" : "aren't"} serving yet.` : "";
       root.querySelector(".log").innerHTML = logHTML();
     }
 
     function drawChat(s) {
-      const n = names(s);
-      root.innerHTML = `<h1>Chat with them</h1>
-        <div class="tabs">
-          <button data-target="audience">${n.audience}</button>
-          <button data-target="optimized">${n.optimized}</button>
-        </div>
-        <p class="muted not-serving">${s.swapped ? "The unoptimized one isn't serving, so only your pick can answer." : "Your pick isn't serving, so only the optimized one can answer."}</p>
+      root.innerHTML = `<h1>Chat with the model</h1>
+        <div class="tabs">${sidesOf(s).map((x) => `<button data-target="${esc(x.name)}">${esc(label(x.roles))}</button>`).join("")}</div>
+        <p class="muted not-serving"></p>
         <div class="log"></div>
         <form class="ask"><input name="q" placeholder="Ask something" autocomplete="off" maxlength="500"><button>Send</button></form>`;
       root.dataset.view = "race";
@@ -119,6 +140,32 @@
       const form = root.querySelector("form.ask");
       form.onsubmit = (e) => { e.preventDefault(); const text = form.q.value.trim(); form.q.value = ""; ask(text); };
       updateChat(s);
+    }
+
+    // The manifests the app applied, with their comments: the pick against
+    // its opposite in full, the other comparison folded away.
+    function appliedHTML(race) {
+      const labelOf = (name) => (race.sides.find((x) => x.name === name) || { label: name }).label;
+      return (race.manifests || []).map((c, i) => {
+        const n = { left: labelOf(c.left), right: labelOf(c.right) };
+        const title = `The ModelDeployments applied, ${esc(n.left)} vs ${esc(n.right)}`;
+        return i === 0
+          ? `<section class="applied"><h2>${title}</h2>${manifestsHTML(c.rows, n)}</section>`
+          : `<section class="applied stack">${details(`applied-${c.left}-${c.right}`, title, manifestsHTML(c.rows, n))}</section>`;
+      }).join("");
+    }
+
+    function raceHTML(race, s) {
+      const sides = race.sides || [];
+      // The side ahead in the head-to-head the room can win wears the crown.
+      const first = (race.standings || [])[0];
+      const leader = first && first.winner && first.winner !== "tie" ? first.winner : null;
+      return `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
+        ${standingsHTML(race.standings)}
+        <div class="race" style="grid-template-columns: repeat(${sides.length}, 1fr)">${sides.map((x) => sideHTML(x, s, x.name === leader)).join("")}</div>
+        ${resultsHTML(race.results, sides)}
+        ${appliedHTML(race)}
+        ${raceStackHTML(stackData)}`;
     }
 
     function render(s) {
@@ -229,44 +276,52 @@
         `<tr><td class="muted">${esc(c.apiVersion)}</td><td>${esc(c.kind)}</td><td><code>${esc(c.name)}</code></td><td>${esc((c.facts || []).join(", "))}</td></tr>`).join("")}</tbody></table>`;
     }
 
-    // While the audience's pick comes up: everything it is becoming.
+    const enginesHTML = (side) => (side.engines || []).map((e, i) => engineHTML(e, i, side.engines.length)).join("");
+
+    // While the pick and its opposite come up: everything each is becoming.
     function deployingStackHTML(d) {
-      const a = d && d.audience;
-      if (!a) return "";
-      const composed = `<table class="inventory"><tbody>${(a.composed || []).map((c) =>
-        `<tr><td class="muted">${esc(c.apiVersion)}</td><td>${esc(c.kind)}</td><td><code>${esc(c.name)}</code></td></tr>`).join("")}</tbody></table>`;
-      const engines = (a.engines || []).map((e, i) => engineHTML(e, i, a.engines.length)).join("");
-      return `<section class="stack">
-        <h2>What your pick is becoming</h2>
-        ${unreadableHTML(d)}
-        ${details("deploying-composed", `Modelplane composed ${(a.composed || []).length} resources`, composed)}
-        ${details("deploying-created", `Kubernetes created ${(a.created || []).length} more from them`, createdHTML(a.created))}
-        <h3>Inside vLLM</h3>
-        <div class="engines">${engines || `<p class="muted">The engines haven't started yet.</p>`}</div>
-      </section>`;
+      if (!d || !d.sides || !d.sides.length) return "";
+      return d.sides.map((a) => {
+        const composed = `<table class="inventory"><tbody>${(a.composed || []).map((c) =>
+          `<tr><td class="muted">${esc(c.apiVersion)}</td><td>${esc(c.kind)}</td><td><code>${esc(c.name)}</code></td></tr>`).join("")}</tbody></table>`;
+        const engines = enginesHTML(a);
+        return `<section class="stack">
+          <h2>What ${a.name === "audience" ? "audience pick" : "the opposite"} is becoming</h2>
+          ${unreadableHTML(d)}
+          ${details(`deploying-composed-${a.name}`, `Modelplane composed ${(a.composed || []).length} resources`, composed)}
+          ${details(`deploying-created-${a.name}`, `Kubernetes created ${(a.created || []).length} more from them`, createdHTML(a.created))}
+          <h3>Inside vLLM</h3>
+          <div class="engines">${engines || `<p class="muted">The engines haven't started yet.</p>`}</div>
+        </section>`;
+      }).join("");
     }
 
-    // In the race: both sides, with only what differs opened up.
-    function raceStackHTML(d, n) {
-      if (!d || !d.optimized || !d.audience) return "";
-      const state = (p) => ({ same: "same", differs: "differs", optimized: `only in ${n.optimized}`, audience: `only in ${n.audience}` }[p.state]);
-      const rows = (d.pairs || []).map((p) => {
-        const head = `<span class="muted">${esc(p.apiVersion)}</span> ${esc(p.kind)} <code>${esc(p.key)}</code> <span class="state ${p.state}">${esc(state(p))}</span>`;
-        return p.state === "differs"
-          ? details(`pair-${p.kind}-${p.key}`, head, manifestsHTML(p.rows, n))
-          : `<div class="pair">${head}</div>`;
+    // In the race: every side, each comparison with only what differs opened up.
+    function raceStackHTML(d) {
+      if (!d || !d.sides || !d.sides.length) return "";
+      const labelOf = (name) => { const x = d.sides.find((y) => y.name === name); return x ? x.label : name; };
+      const comparisons = (d.compared || []).map((c) => {
+        const n = { left: labelOf(c.left), right: labelOf(c.right) };
+        const state = (p) => ({ same: "same", differs: "differs", left: `only in ${n.left}`, right: `only in ${n.right}` }[p.state]);
+        const rows = (c.pairs || []).map((p) => {
+          const head = `<span class="muted">${esc(p.apiVersion)}</span> ${esc(p.kind)} <code>${esc(p.key)}</code> <span class="state ${p.state}">${esc(state(p))}</span>`;
+          return p.state === "differs"
+            ? details(`pair-${c.left}-${c.right}-${p.kind}-${p.key}`, head, manifestsHTML(p.rows, n))
+            : `<div class="pair">${head}</div>`;
+        }).join("");
+        const differs = (c.pairs || []).filter((p) => p.state !== "same").length;
+        return `<h3>Composed by Modelplane, ${esc(n.left)} vs ${esc(n.right)} <span class="muted">${(c.pairs || []).length} resources, ${differs} differ</span></h3>
+          <div class="pairs">${rows}</div>`;
       }).join("");
-      const differs = (d.pairs || []).filter((p) => p.state !== "same").length;
-      const engines = (side) => (side.engines || []).map((e, i) => engineHTML(e, i, side.engines.length)).join("");
+      const cols = `style="grid-template-columns: repeat(${d.sides.length}, 1fr)"`;
       return `<section class="stack">
         <h2>Everything each one became</h2>
         ${unreadableHTML(d)}
-        <h3>Composed by Modelplane <span class="muted">${(d.pairs || []).length} resources, ${differs} differ</span></h3>
-        <div class="pairs">${rows}</div>
-        ${details("race-created", `Created by Kubernetes from those: ${(d.optimized.created || []).length} and ${(d.audience.created || []).length}`,
-          `<div class="race"><div><h4>${n.optimized}</h4>${createdHTML(d.optimized.created)}</div><div><h4>${n.audience}</h4>${createdHTML(d.audience.created)}</div></div>`)}
+        ${comparisons}
+        ${details("race-created", `Created by Kubernetes from those: ${d.sides.map((x) => (x.created || []).length).join(", ")}`,
+          `<div class="columns" ${cols}>${d.sides.map((x) => `<div><h4>${esc(x.label)}</h4>${createdHTML(x.created)}</div>`).join("")}</div>`)}
         <h3>Inside vLLM</h3>
-        <div class="race"><div><h4>${n.optimized}</h4><div class="engines">${engines(d.optimized)}</div></div><div><h4>${n.audience}</h4><div class="engines">${engines(d.audience)}</div></div></div>
+        <div class="columns" ${cols}>${d.sides.map((x) => `<div><h4>${esc(x.label)}</h4><div class="engines">${enginesHTML(x)}</div></div>`).join("")}</div>
       </section>`;
     }
 
@@ -296,16 +351,21 @@
       if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { e.preventDefault(); next.click(); }
     });
 
-    function sideHTML(title, side, s, isAudience) {
+    // Requests completed per minute, the number the winner is called on.
+    const perMinute = (l) => (l && l.seconds > 0 ? (60 * (l.requests - l.failures)) / l.seconds : null);
+
+    function sideHTML(side, s, leading) {
       const l = side.load;
       const a = side.accuracy;
       let body;
       if (!side.serving) {
         const crashed = (side.pods || []).some((p) => p.restarts);
-        body = `<p class="${crashed ? "crash" : "muted"}">${crashed ? "Not serving." : "Not serving yet."}</p>${podsHTML(side.pods, true)}${gatewayHTML(s)}`;
+        const d = (s.deployments || []).find((x) => x.name === side.name);
+        body = `<p class="${crashed ? "crash" : "muted"}">${crashed ? "Not serving." : "Not serving yet."}</p>${podsHTML(side.pods, true)}${gatewayHTML(d)}`;
       } else {
         const num = (v, digits) => (v === undefined || v === null ? "-" : v.toFixed(digits));
         body = `<table class="stats">
+          <tr class="big"><th>Requests completed per minute</th><td>${num(perMinute(l), 0)}</td></tr>
           <tr><th>Load-test requests</th><td>${l ? l.requests : "-"}${l && l.failures ? ` <span class="crash">(${l.failures} failed)</span>` : ""}</td></tr>
           <tr><th>Audience messages</th><td>${side.chats}</td></tr>
           <tr><th>Tokens per second</th><td>${l ? num(l.tokensPerSec, 0) : "-"}</td></tr>
@@ -313,35 +373,57 @@
           <tr><th>Answer time, slowest 5%</th><td>${l && l.p95 ? num(l.p95, 1) + "s" : "-"}</td></tr>
           <tr><th>Math accuracy</th><td>${a && a.answered ? `${(100 * a.correct / a.answered).toFixed(1)}% <span class="muted">(${a.correct}/${a.answered}${a.done ? "" : ` of ${a.total}`})</span>` : "-"}</td></tr>
         </table>
-        ${l ? `<p class="muted">${clock(l.seconds)}${l.done ? ", done" : ""}</p>` : ""}`;
+        ${l ? `<p class="muted">${clock(l.seconds)} of load${l.done ? ", done" : ""}</p>` : ""}`;
       }
-      const swapped = !s.swapped ? ""
-        : isAudience ? `<p class="note">Every answer flipped, to show what the choices are worth.</p>`
-        : `<p class="note">The room picked exactly the optimized configuration.</p>`;
-      // Four parts, one per row of the shared grid, so both columns line up
+      const roles = side.roles || [];
+      const note = roles.includes("optimized") && roles.includes("audience") ? `<p class="note">The room picked exactly the optimized configuration.</p>`
+        : roles.includes("optimized") && roles.includes("opposite") ? `<p class="note">The opposite of the room's pick is exactly the optimized configuration.</p>`
+        : roles.includes("opposite") ? `<p class="muted">Every answer of audience pick, flipped.</p>` : "";
+      // Three parts, one per row of the shared grid, so the columns line up
       // whichever has the longer answers.
-      return `<section class="side"><h2>${esc(title)} <span class="config">${esc(side.config)}</span></h2><div>${swapped}${summaryHTML(side.summary)}</div><div>${body}</div></section>`;
+      return `<section class="side${leading ? " leading" : ""}"><h2>${leading ? `<span class="crown" title="Ahead right now">&#x1F3C6;</span> ` : ""}${esc(side.label)} <span class="config">${esc(side.config)}</span></h2><div>${note}${summaryHTML(side.summary)}</div><div>${body}</div></section>`;
+    }
+
+    // Who is ahead right now, by requests completed per minute: first the
+    // pick against its opposite, the race the room can win, then against the
+    // optimized config. It can change as the race goes on.
+    function standingsHTML(standings) {
+      if (!standings || !standings.length) return "";
+      return `<section class="standings">${standings.map((st, i) => {
+        const rates = `${Math.round(st.leftRate)} vs ${Math.round(st.rightRate)} requests completed per minute`;
+        let text, cls = "";
+        if (!st.winner) { text = `${esc(st.leftLabel)} vs ${esc(st.rightLabel)}: waiting for both to serve`; cls = "waiting"; }
+        else if (st.winner === "tie") { text = `${esc(st.leftLabel)} vs ${esc(st.rightLabel)}: too close to call`; cls = "tie"; }
+        else {
+          const [w, l] = st.winner === st.left ? [st.leftLabel, st.rightLabel] : [st.rightLabel, st.leftLabel];
+          text = `${esc(w)} is beating ${esc(l)}`;
+          cls = st.winner === st.left ? "won" : "lost";
+        }
+        return `<div class="standing ${cls}${i ? " secondary" : ""}"><span class="headline">${text}</span>${st.winner ? `<span class="muted">${rates}</span>` : ""}</div>`;
+      }).join("")}</section>`;
     }
 
     // The code decides each winner; the optimized model explains why, from
     // those numbers and what the engines reported.
-    function resultsHTML(r, n) {
+    function resultsHTML(r, sides) {
       if (!r) return "";
-      const mark = (row, who) => (row.winner === who ? ` class="win"` : "");
+      const head = (first) => `<thead><tr><th>${first}</th>${sides.map((x) => `<th>${esc(x.label)}</th>`).join("")}</tr></thead>`;
       const table = r.rows && r.rows.length
-        ? `<table class="results"><thead><tr><th></th><th>${n.optimized}</th><th>${n.audience}</th></tr></thead><tbody>${r.rows.map((row) =>
-            `<tr><th>${esc(row.measure)}</th><td${mark(row, "optimized")}>${esc(row.optimized)}</td><td${mark(row, "audience")}>${esc(row.audience)}</td></tr>`).join("")}</tbody></table>`
+        ? `<table class="results">${head("")}<tbody>${r.rows.map((row) =>
+            `<tr><th>${esc(row.measure)}</th>${sides.map((x) => `<td${row.winner === x.name ? ` class="win"` : ""}>${esc((row.values || {})[x.name] || "-")}</td>`).join("")}</tr>`).join("")}</tbody></table>`
         : "";
       const pct = (v) => (v === null || v === undefined ? "-" : `${Math.round(v * 100)}%`);
-      const o = (r.evidence || {}).optimized, a = (r.evidence || {}).audience;
-      const evidence = o && a
-        ? `<table class="results evidence"><thead><tr><th>What the engines reported</th><th>${n.optimized}</th><th>${n.audience}</th></tr></thead><tbody>
-            <tr><th>Room for full-length conversations, per engine</th><td>${o.maxConcurrency.toFixed(1)}</td><td>${a.maxConcurrency.toFixed(1)}</td></tr>
-            <tr><th>KV cache in use, average</th><td>${pct(o.kvUsageAvg)}</td><td>${pct(a.kvUsageAvg)}</td></tr>
-            <tr><th>Requests waiting, average</th><td>${Math.round(o.waitingAvg)}</td><td>${Math.round(a.waitingAvg)}</td></tr>
-            <tr><th>Conversations evicted</th><td>${Math.round(o.preemptions)}</td><td>${Math.round(a.preemptions)}</td></tr>
-            <tr><th>Prompt found in the prefix cache</th><td>${pct(o.prefixHitRate)}</td><td>${pct(a.prefixHitRate)}</td></tr>
-            <tr><th>Guessed tokens accepted</th><td>${pct(o.specAcceptance)}</td><td>${pct(a.specAcceptance)}</td></tr>
+      const ev = r.evidence || {};
+      const measured = sides.filter((x) => ev[x.name]);
+      const line = (title, f) => `<tr><th>${title}</th>${measured.map((x) => `<td>${f(ev[x.name])}</td>`).join("")}</tr>`;
+      const evidence = measured.length > 1
+        ? `<table class="results evidence"><thead><tr><th>What the engines reported</th>${measured.map((x) => `<th>${esc(x.label)}</th>`).join("")}</tr></thead><tbody>
+            ${line("Room for full-length conversations, per engine", (e) => e.maxConcurrency.toFixed(1))}
+            ${line("KV cache in use, average", (e) => pct(e.kvUsageAvg))}
+            ${line("Requests waiting, average", (e) => Math.round(e.waitingAvg))}
+            ${line("Conversations evicted", (e) => Math.round(e.preemptions))}
+            ${line("Prompt found in the prefix cache", (e) => pct(e.prefixHitRate))}
+            ${line("Guessed tokens accepted", (e) => pct(e.specAcceptance))}
           </tbody></table>`
         : "";
       const by = r.source === "writing"
@@ -364,8 +446,34 @@
         const indent = line.length - line.trimStart().length;
         return `<td><pre style="padding-left:${indent}ch">${esc(line.trimStart())}</pre></td>`;
       };
-      return `<table class="manifests"><thead><tr><th>${n.optimized}</th><th>${n.audience}</th></tr></thead><tbody>${rows.map((r) =>
+      return `<table class="manifests"><thead><tr><th>${esc(n.left)}</th><th>${esc(n.right)}</th></tr></thead><tbody>${rows.map((r) =>
         `<tr class="${r.kind}">${cell(r.left)}${cell(r.right)}</tr>`).join("")}</tbody></table>`;
+    }
+
+    // The manifests the app applied, with their comments: the pick against
+    // its opposite in full, the other comparison folded away.
+    function appliedHTML(race) {
+      const labelOf = (name) => (race.sides.find((x) => x.name === name) || { label: name }).label;
+      return (race.manifests || []).map((c, i) => {
+        const n = { left: labelOf(c.left), right: labelOf(c.right) };
+        const title = `The ModelDeployments applied, ${esc(n.left)} vs ${esc(n.right)}`;
+        return i === 0
+          ? `<section class="applied"><h2>${title}</h2>${manifestsHTML(c.rows, n)}</section>`
+          : `<section class="applied stack">${details(`applied-${c.left}-${c.right}`, title, manifestsHTML(c.rows, n))}</section>`;
+      }).join("");
+    }
+
+    function raceHTML(race, s) {
+      const sides = race.sides || [];
+      // The side ahead in the head-to-head the room can win wears the crown.
+      const first = (race.standings || [])[0];
+      const leader = first && first.winner && first.winner !== "tie" ? first.winner : null;
+      return `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
+        ${standingsHTML(race.standings)}
+        <div class="race" style="grid-template-columns: repeat(${sides.length}, 1fr)">${sides.map((x) => sideHTML(x, s, x.name === leader)).join("")}</div>
+        ${resultsHTML(race.results, sides)}
+        ${appliedHTML(race)}
+        ${raceStackHTML(stackData)}`;
     }
 
     function render(s) {
@@ -389,14 +497,7 @@
       } else if (s.phase === "deploying") {
         html = deployingHTML(s) + deployingStackHTML(stackData);
       } else if (s.phase === "race") {
-        const n = names(s);
-        html = race
-          ? `<h1>The race <span class="muted">${race.ended ? `${clock((new Date(race.ended) - new Date(race.started)) / 1000)}, finished` : clock(since(race.started))}</span></h1>
-            <div class="race">${sideHTML(n.optimized, race.optimized, s, false)}${sideHTML(n.audience, race.audience, s, true)}</div>
-            ${resultsHTML(race.results, n)}
-            ${manifestsHTML(race.manifests, n)}
-            ${raceStackHTML(stackData, n)}`
-          : `<h1>The race</h1><p class="muted">Starting...</p>`;
+        html = race ? raceHTML(race, s) : `<h1>The race</h1><p class="muted">Starting...</p>`;
       }
       // Keep the manifests where the presenter scrolled them.
       const y = window.scrollY;

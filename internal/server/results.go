@@ -60,20 +60,19 @@ func (s *Server) showResults(w http.ResponseWriter, r *http.Request) {
 // optimized model explain them in the background. A newer request cancels an
 // older one that is still writing.
 func (s *Server) analyze(v raceView, final bool) {
-	a := analysis.Race{Final: final, Swapped: v.Swapped, Optimized: side(v.Optimized), Audience: side(v.Audience)}
-	if v.Optimized.Load != nil {
-		a.Elapsed = v.Optimized.Load.Seconds
-	}
 	s.raceMu.Lock()
 	if s.race == nil {
 		s.raceMu.Unlock()
 		return
 	}
-	a.Optimized.Evidence = s.race.engines.Evidence("optimized")
-	a.Audience.Evidence = s.race.engines.Evidence("audience")
+	a := raceOf(v, final)
+	evidence := map[string]*engines.Evidence{}
+	for i := range a.Sides {
+		a.Sides[i].Evidence = s.race.engines.Evidence(a.Sides[i].Name)
+		evidence[a.Sides[i].Name] = a.Sides[i].Evidence
+	}
 	rows := analysis.Rows(a)
-	res := &results{At: time.Now(), Elapsed: a.Elapsed, Final: final, Rows: rows, Source: "writing",
-		Evidence: map[string]*engines.Evidence{"optimized": a.Optimized.Evidence, "audience": a.Audience.Evidence}}
+	res := &results{At: time.Now(), Elapsed: a.Elapsed, Final: final, Rows: rows, Source: "writing", Evidence: evidence}
 	if s.race.cancelResults != nil {
 		s.race.cancelResults()
 	}
@@ -128,24 +127,32 @@ func (s *Server) analyze(v raceView, final bool) {
 	}()
 }
 
-func side(rs raceSide) analysis.Side {
-	sd := analysis.Side{Config: rs.Config, Serving: rs.Serving}
-	if l := rs.Load; l != nil {
-		sd.TokensPerSec, sd.P50, sd.P95, sd.Requests, sd.Failures = l.TokensPerSec, l.P50, l.P95, l.Requests, l.Failures
+// raceOf is the race's numbers for the analysis, without the engines'
+// evidence, which only analyze reads. Elapsed is the optimized side's load,
+// the first to start.
+func raceOf(v raceView, final bool) analysis.Race {
+	a := analysis.Race{Final: final}
+	for _, rs := range v.Sides {
+		sd := analysis.Side{Name: rs.Name, Roles: rs.Roles, Config: rs.Config, Serving: rs.Serving}
+		if l := rs.Load; l != nil {
+			sd.TokensPerSec, sd.P50, sd.P95, sd.Requests, sd.Failures, sd.Seconds = l.TokensPerSec, l.P50, l.P95, l.Requests, l.Failures, l.Seconds
+			a.Elapsed = max(a.Elapsed, l.Seconds)
+		}
+		if acc := rs.Accuracy; acc != nil {
+			sd.Correct, sd.Answered = acc.Correct, acc.Answered
+		}
+		a.Sides = append(a.Sides, sd)
 	}
-	if acc := rs.Accuracy; acc != nil {
-		sd.Correct, sd.Answered = acc.Correct, acc.Answered
-	}
-	return sd
+	return a
 }
 
-// engineEndpoints lists both deployments' engines, for the evidence.
+// engineEndpoints lists every deployment's engines, for the evidence.
 func (s *Server) engineEndpoints(ctx context.Context) []engines.Endpoint {
 	if s.kube == nil {
 		return nil
 	}
 	var list podList
-	if err := s.kube.List(ctx, "/api/v1/pods", "modelplane.ai/engine,modelplane.ai/deployment in (audience,optimized)", &list); err != nil {
+	if err := s.kube.List(ctx, "/api/v1/pods", "modelplane.ai/engine,modelplane.ai/deployment in (audience,opposite,optimized)", &list); err != nil {
 		log.Printf("listing engines for evidence: %v", err)
 		return nil
 	}

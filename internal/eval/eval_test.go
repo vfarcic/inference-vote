@@ -11,7 +11,7 @@ import (
 )
 
 func TestProblemsLoad(t *testing.T) {
-	if len(Problems) != 200 || Problems[0].Answer != "18" {
+	if len(Problems) != 311 || Problems[0].Answer != "9" {
 		t.Fatalf("got %d problems, first answer %q", len(Problems), Problems[0].Answer)
 	}
 }
@@ -29,6 +29,9 @@ func TestCorrect(t *testing.T) {
 		{"Answer: 17", "18", false},
 		{"First 18, then Answer: 20", "18", false},
 		{"I don't know.", "18", false},
+		{"So $x = \\boxed{18}$.", "18", true},
+		{"Answer: $\\boxed{-4}$", "-4", true},
+		{"The sum is \\boxed{12}, so 3 terms.", "12", true},
 	}
 	for _, c := range cases {
 		if got := Correct(c.reply, c.expected); got != c.want {
@@ -45,7 +48,7 @@ func TestStartRetriesFailures(t *testing.T) {
 			http.Error(w, "no healthy upstream", http.StatusServiceUnavailable)
 			return
 		}
-		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Answer: 18\"}}]}\n\ndata: [DONE]\n\n")
+		fmt.Fprint(w, "data: {\"choices\":[{\"delta\":{\"content\":\"Answer: 9\"}}]}\n\ndata: [DONE]\n\n")
 	}))
 	defer srv.Close()
 
@@ -54,7 +57,7 @@ func TestStartRetriesFailures(t *testing.T) {
 	for !s.View().Done && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	// The first problem's answer is 18, the second's isn't: both answered once.
+	// The first problem's answer is 9, the second's isn't: both answered once.
 	if v := s.View(); !v.Done || v.Answered != 2 || v.Correct != 1 || v.Errors != 3 {
 		t.Errorf("got %+v, want 2 answered, 1 correct, 3 errors", v)
 	}

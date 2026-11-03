@@ -1,6 +1,7 @@
-# The bridge, on the kind control plane. It may write the audience's
-# ModelDeployment, and an annotation on the audience's ModelService that nudges
-# Modelplane to route it as soon as it is ready. The setup creates the inference-vote-bridge Secret
+# The bridge, on the kind control plane. It may write and delete the
+# ModelDeployments of the audience's pick and its opposite, and an annotation on
+# their ModelServices that nudges Modelplane to route them as soon as they are
+# ready. The setup creates the inference-vote-bridge Secret
 # with the voting app's URL and the bridge token.
 apiVersion: v1
 kind: Namespace
@@ -21,8 +22,8 @@ metadata:
 rules:
 - apiGroups: ["modelplane.ai"]
   resources: ["modeldeployments"]
-  resourceNames: ["audience"]
-  verbs: ["get", "patch"]
+  resourceNames: ["audience", "opposite"]
+  verbs: ["get", "patch", "delete"]
 # Server-side apply of an object that does not exist yet is a create, which
 # resourceNames cannot restrict.
 - apiGroups: ["modelplane.ai"]
@@ -30,7 +31,7 @@ rules:
   verbs: ["create"]
 - apiGroups: ["modelplane.ai"]
   resources: ["modelservices"]
-  resourceNames: ["audience"]
+  resourceNames: ["audience", "opposite"]
   verbs: ["get", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1

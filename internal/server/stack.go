@@ -21,8 +21,8 @@ import (
 type stacks struct {
 	mu         sync.Mutex
 	session    int
-	sides      map[string]*stackSide
-	pairs      []stack.Pair
+	sides      map[string]*stackSide // by deployment
+	compared   []stackComparison
 	logs       map[string]string // engine pod -> the startup lines read so far
 	metrics    map[string]string // engine pod -> its metrics, read once
 	types      []kube.Type
@@ -31,9 +31,18 @@ type stacks struct {
 }
 
 type stackSide struct {
+	Name     string          `json:"name"`
+	Label    string          `json:"label"`
 	Composed []composedItem  `json:"composed"`
 	Created  []stack.Created `json:"created"`
 	Engines  []stack.Engine  `json:"engines"`
+}
+
+// stackComparison is two deployments' composed resources, paired.
+type stackComparison struct {
+	Left  string       `json:"left"`
+	Right string       `json:"right"`
+	Pairs []stack.Pair `json:"pairs"`
 }
 
 // composedItem is a composed resource as the deployment screen lists it:
@@ -44,7 +53,7 @@ type composedItem struct {
 	Name       string `json:"name"`
 }
 
-// WatchStacks collects both deployments' stacks every few seconds while there
+// WatchStacks collects every deployment's stack every few seconds while there
 // is something to show. Engines are read in every phase: what vLLM logs at
 // startup is gone once serving rotates its log, and the optimized engine
 // starts long before the race.
@@ -62,7 +71,7 @@ func (s *Server) WatchStacks(ctx context.Context) {
 		case <-t.C:
 		}
 		var pods podList
-		if err := s.kube.List(ctx, "/api/v1/pods", "modelplane.ai/engine,modelplane.ai/deployment in (audience,optimized)", &pods); err != nil {
+		if err := s.kube.List(ctx, "/api/v1/pods", "modelplane.ai/engine,modelplane.ai/deployment in (audience,opposite,optimized)", &pods); err != nil {
 			log.Printf("listing engines: %v", err)
 			continue
 		}
@@ -71,7 +80,7 @@ func (s *Server) WatchStacks(ctx context.Context) {
 		if len(pods.Items) == 0 || (st.Phase != poll.Deploying && st.Phase != poll.Race) {
 			continue
 		}
-		if err := s.collectStacks(ctx, pods, st.Session); err != nil {
+		if err := s.collectStacks(ctx, pods, st); err != nil {
 			log.Printf("collecting what the deployments became: %v", err)
 		}
 	}
@@ -122,11 +131,11 @@ func (s *Server) captureEngines(ctx context.Context, client *http.Client, pods p
 	}
 }
 
-func (s *Server) collectStacks(ctx context.Context, pods podList, session int) error {
+func (s *Server) collectStacks(ctx context.Context, pods podList, st poll.State) error {
 	ns := pods.Items[0].Metadata.Namespace
 
 	s.stacks.mu.Lock()
-	s.stacks.session = session
+	s.stacks.session = st.Session
 	types := s.stacks.types
 	if time.Since(s.stacks.typesAt) > 10*time.Minute {
 		types = nil
@@ -167,7 +176,8 @@ func (s *Server) collectStacks(ctx context.Context, pods podList, session int) e
 
 	sides := map[string]*stackSide{}
 	composedBy := map[string][]stack.Object{}
-	for _, dep := range []string{"optimized", "audience"} {
+	for _, side := range lineup(st) {
+		dep := side.Name
 		var mine []stack.Object
 		for _, o := range all {
 			if stack.Belongs(o.Name(), dep) {
@@ -177,16 +187,19 @@ func (s *Server) collectStacks(ctx context.Context, pods podList, session int) e
 		composed, created := stack.Split(mine)
 		composedBy[dep] = composed
 		logs, metrics := s.engineOutput(pods, dep)
-		side := &stackSide{Created: stack.Summarize(composed, created, dep), Engines: stack.Engines(created, logs, metrics)}
+		ss := &stackSide{Name: dep, Label: side.Label, Created: stack.Summarize(composed, created, dep), Engines: stack.Engines(created, logs, metrics)}
 		for _, o := range composed {
-			side.Composed = append(side.Composed, composedItem{APIVersion: o.APIVersion(), Kind: o.Kind(), Name: o.Name()})
+			ss.Composed = append(ss.Composed, composedItem{APIVersion: o.APIVersion(), Kind: o.Kind(), Name: o.Name()})
 		}
-		sides[dep] = side
+		sides[dep] = ss
 	}
-	pairs := stack.Compare(composedBy["optimized"], composedBy["audience"])
+	var compared []stackComparison
+	for _, p := range pairs(st) {
+		compared = append(compared, stackComparison{Left: p[0], Right: p[1], Pairs: stack.Compare(p[0], composedBy[p[0]], p[1], composedBy[p[1]])})
+	}
 
 	s.stacks.mu.Lock()
-	s.stacks.sides, s.stacks.pairs = sides, pairs
+	s.stacks.sides, s.stacks.compared = sides, compared
 	s.stacks.mu.Unlock()
 	return nil
 }
@@ -205,8 +218,9 @@ func (s *Server) engineOutput(pods podList, dep string) (logs, metrics map[strin
 }
 
 // stackState is what the presenter's screen polls: during the deployment,
-// only the audience's side, since the optimized one is revealed with the race;
-// during the race, both, and what differs between them.
+// only what the bridge is deploying, the pick and its opposite, since the
+// optimized one is revealed with the race; during the race, every side, and
+// what differs between them.
 func (s *Server) stackState(w http.ResponseWriter, r *http.Request) {
 	st := s.poll.Snapshot()
 	s.stacks.mu.Lock()
@@ -216,11 +230,18 @@ func (s *Server) stackState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	unreadable := s.stacks.unreadable
+	var sides []*stackSide
+	for _, side := range lineup(st) {
+		_, deploying := st.Deployment(side.Name)
+		if ss := s.stacks.sides[side.Name]; ss != nil && (st.Phase == poll.Race || deploying) {
+			sides = append(sides, ss)
+		}
+	}
 	switch st.Phase {
 	case poll.Deploying:
-		writeJSON(w, http.StatusOK, map[string]any{"audience": s.stacks.sides["audience"], "unreadable": unreadable})
+		writeJSON(w, http.StatusOK, map[string]any{"sides": sides, "unreadable": unreadable})
 	case poll.Race:
-		writeJSON(w, http.StatusOK, map[string]any{"optimized": s.stacks.sides["optimized"], "audience": s.stacks.sides["audience"], "pairs": s.stacks.pairs, "unreadable": unreadable})
+		writeJSON(w, http.StatusOK, map[string]any{"sides": sides, "compared": s.stacks.compared, "unreadable": unreadable})
 	default:
 		w.WriteHeader(http.StatusNoContent)
 	}

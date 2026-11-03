@@ -128,3 +128,12 @@ func (c *Client) List(ctx context.Context, path, labelSelector string, out any) 
 	}
 	return c.Get(ctx, path, out)
 }
+
+// Delete deletes the object at path. One that is already gone is not an error.
+func (c *Client) Delete(ctx context.Context, path string) error {
+	_, err := c.do(ctx, http.MethodDelete, path, "", nil)
+	if NotFound(err) {
+		return nil
+	}
+	return err
+}

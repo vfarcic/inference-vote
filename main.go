@@ -2,7 +2,7 @@
 //
 //	serve   the voting app, on the cluster Modelplane created
 //	bridge  applies the winning config, on the control plane
-//	render  prints a config's ModelDeployment, for the setup
+//	render  prints a config's ModelDeployment as commented YAML, for the setup
 //	load    the agent workload the verdict is based on
 package main
 
@@ -72,8 +72,8 @@ func serve(ctx context.Context, args []string) error {
 	optimized := fs.String("optimized", env("OPTIMIZED", "BAA"), "the optimized config the audience is compared against")
 	agents, _ := strconv.Atoi(env("LOAD_AGENTS", "100"))
 	loadAgents := fs.Int("load-agents", agents, "concurrent agents per deployment during the race; 0 disables")
-	loadDuration := fs.Duration("load-duration", 12*time.Minute, "how long the load test runs on each deployment")
-	evalProblems := fs.Int("eval-problems", 200, "math problems each deployment answers during the race, to measure accuracy; 0 disables")
+	loadDuration := fs.Duration("load-duration", 0, "how long the load test runs on each deployment; 0 runs it until a reset or until the cluster is gone")
+	evalProblems := fs.Int("eval-problems", 311, "math problems each deployment answers during the race, to measure accuracy; 0 disables")
 	modelCache := fs.Bool("cache", env("MODEL_CACHE", "") == "true", "the deployments load weights from a ModelCache (shown in the manifests)")
 	fs.Parse(args)
 
@@ -86,11 +86,9 @@ func serve(ctx context.Context, args []string) error {
 		BridgeToken:    os.Getenv("BRIDGE_TOKEN"),
 		GatewayURL:     os.Getenv("GATEWAY_URL"),
 		GatewayKey:     os.Getenv("GATEWAY_KEY"),
-		PodSelector:    env("POD_SELECTOR", "modelplane.ai/deployment=audience,modelplane.ai/engine"),
 		Load: load.Config{
 			GatewayURL: os.Getenv("GATEWAY_URL"),
 			Key:        os.Getenv("LOAD_KEY"),
-			Targets:    []string{"audience", "optimized"},
 			Agents:     *loadAgents,
 			Duration:   *loadDuration,
 			MaxTokens:  512,
@@ -100,7 +98,7 @@ func serve(ctx context.Context, args []string) error {
 			GatewayURL: os.Getenv("GATEWAY_URL"),
 			Key:        os.Getenv("LOAD_KEY"),
 			Problems:   *evalProblems,
-			Workers:    4,
+			Workers:    8, // 311 long problems under load: four would take well over an hour
 		},
 		Options: choice.Options{Cache: *modelCache},
 	}
@@ -161,7 +159,6 @@ func serve(ctx context.Context, args []string) error {
 func runBridge(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("bridge", flag.ExitOnError)
 	voteURL := fs.String("vote-url", env("VOTE_URL", ""), "the voting app's public address")
-	name := fs.String("name", "audience", "the ModelDeployment the bridge owns")
 	every := fs.Duration("every", 3*time.Second, "how often to poll")
 	cache := fs.Bool("cache", env("MODEL_CACHE", "") == "true", "load weights from a ModelCache")
 	fs.Parse(args)
@@ -173,7 +170,7 @@ func runBridge(ctx context.Context, args []string) error {
 		return err
 	}
 	b := &bridge.Bridge{
-		VoteURL: strings.TrimRight(*voteURL, "/"), Token: os.Getenv("BRIDGE_TOKEN"), Name: *name,
+		VoteURL: strings.TrimRight(*voteURL, "/"), Token: os.Getenv("BRIDGE_TOKEN"), Names: []string{poll.AudienceName, poll.OppositeName},
 		Options: choice.Options{Cache: *cache}, Kube: k, Every: *every,
 		Insecure: env("ACME_STAGING", "") == "true",
 	}
@@ -192,11 +189,8 @@ func render(args []string) error {
 	if err != nil {
 		return err
 	}
-	out, err := choice.Manifest(*name, c, choice.Options{Cache: *cache})
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(out))
+	// YAML with comments, the same file the race screen shows.
+	fmt.Println(choice.YAML(*name, c, choice.Options{Cache: *cache}))
 	return nil
 }
 

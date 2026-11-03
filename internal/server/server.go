@@ -1,6 +1,6 @@
 // Package server is the voting app: the page the audience opens from the QR
 // code, the presenter's controls, the endpoints the bridge polls, and a chat
-// proxy so the audience can talk to both deployments without ever holding a
+// proxy so the audience can talk to every deployment without ever holding a
 // gateway key.
 package server
 
@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vfarcic/inference-vote/internal/bridge"
 	"github.com/vfarcic/inference-vote/internal/choice"
 	"github.com/vfarcic/inference-vote/internal/eval"
 	"github.com/vfarcic/inference-vote/internal/gateway"
@@ -34,7 +35,6 @@ type Config struct {
 	BridgeToken    string // guards the bridge endpoints
 	GatewayURL     string // InferenceGateway base URL, for chat
 	GatewayKey     string // the audience caller's API key on that gateway
-	PodSelector    string // label selector for the audience's engine pods
 	Load           load.Config
 	Eval           eval.Config
 	Options        choice.Options // how both deployments are deployed, for the manifests on screen
@@ -110,14 +110,12 @@ type view struct {
 func (s *Server) viewFor(id string) view {
 	v := view{State: s.poll.Snapshot()}
 	// The optimized config is revealed on the race screen, not before: the
-	// room should vote on the questions, not against an answer key. That the
-	// room matched it shows once the votes are in, so the deployment screen
-	// doesn't call the opposite of their answers their pick.
+	// room should vote on the questions, not against an answer key. Whether
+	// their pick, or its opposite, is exactly the optimized config shows once
+	// the votes are in: that one isn't deployed, and the deployment screen
+	// has to say why.
 	if v.Phase != poll.Race {
 		v.Optimized = ""
-	}
-	if v.Phase == poll.Lobby || v.Phase == poll.Voting {
-		v.Swapped = false
 	}
 	for q := range v.Mine {
 		v.Mine[q] = s.poll.VoteOf(id, q)
@@ -219,12 +217,16 @@ func (s *Server) bridgeDesired(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bridge token required", http.StatusUnauthorized)
 		return
 	}
-	c, ok := s.poll.Desired()
+	d, ok := s.poll.Desired()
 	if !ok {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"config": c.String()})
+	out := map[string]string{}
+	for name, c := range d {
+		out[name] = c.String()
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deployments": out})
 }
 
 func (s *Server) bridgeReport(w http.ResponseWriter, r *http.Request) {
@@ -233,16 +235,15 @@ func (s *Server) bridgeReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Applied       bool     `json:"applied"`
-		ReplicasReady int      `json:"replicasReady"`
-		ReplicasTotal int      `json:"replicasTotal"`
-		Conditions    []string `json:"conditions"`
+		Deployments map[string]bridge.Report `json:"deployments"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&body); err != nil {
 		http.Error(w, "bad report", http.StatusBadRequest)
 		return
 	}
-	s.poll.ReportControlPlane(body.Applied, body.ReplicasReady, body.ReplicasTotal, body.Conditions)
+	for name, r := range body.Deployments {
+		s.poll.ReportControlPlane(name, r.Applied, r.ReplicasReady, r.ReplicasTotal, r.Conditions)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -260,19 +261,19 @@ func (s *Server) chatProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Target   string            `json:"target"` // audience or optimized
+		Target   string            `json:"target"` // a deployment: optimized, audience, or opposite
 		Messages []json.RawMessage `json:"messages"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&body); err != nil || len(body.Messages) == 0 {
 		http.Error(w, "bad chat request", http.StatusBadRequest)
 		return
 	}
-	if body.Target != "audience" && body.Target != "optimized" {
-		http.Error(w, "target must be audience or optimized", http.StatusBadRequest)
+	if body.Target != "optimized" && body.Target != poll.AudienceName && body.Target != poll.OppositeName {
+		http.Error(w, "target must be optimized, audience, or opposite", http.StatusBadRequest)
 		return
 	}
-	if body.Target == "audience" && !st.Serving {
-		http.Error(w, "your pick is not serving", http.StatusConflict)
+	if !st.Serving(body.Target) {
+		http.Error(w, "that model is not serving", http.StatusConflict)
 		return
 	}
 	s.countChat(body.Target)
@@ -295,8 +296,8 @@ func (s *Server) chatProxy(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// WatchPods reports the audience's engine pods to the poll every two seconds
-// while their deployment is coming up. Modelplane composes them onto this same
+// WatchPods reports the engine pods of the audience's pick and its opposite
+// to the poll every two seconds while they come up. Modelplane composes them onto this same
 // cluster, so the app sees them directly; the bridge only sees the control plane.
 func (s *Server) WatchPods(ctx context.Context) {
 	if s.kube == nil {
@@ -315,11 +316,11 @@ func (s *Server) WatchPods(ctx context.Context) {
 			continue
 		}
 		var list podList
-		if err := s.kube.List(ctx, "/api/v1/pods", s.cfg.PodSelector, &list); err != nil {
+		if err := s.kube.List(ctx, "/api/v1/pods", "modelplane.ai/engine,modelplane.ai/deployment in (audience,opposite)", &list); err != nil {
 			log.Printf("listing engine pods: %v", err)
 			continue
 		}
-		pods := make([]poll.PodState, 0, len(list.Items))
+		pods := map[string][]poll.PodState{poll.AudienceName: {}, poll.OppositeName: {}}
 		for _, p := range list.Items {
 			state := poll.PodState{Name: p.Metadata.Name, Step: p.step()}
 			if len(p.Status.ContainerStatuses) > 0 {
@@ -328,9 +329,12 @@ func (s *Server) WatchPods(ctx context.Context) {
 			if state.Restarts > 0 {
 				state.Reason = s.crashReason(ctx, p, state.Restarts)
 			}
-			pods = append(pods, state)
+			dep := p.Metadata.Labels["modelplane.ai/deployment"]
+			pods[dep] = append(pods[dep], state)
 		}
-		s.poll.ReportPods(pods)
+		for dep, list := range pods {
+			s.poll.ReportPods(dep, list)
+		}
 	}
 }
 
@@ -397,19 +401,20 @@ func (p pod) step() string {
 	}
 }
 
-// ProbeGateway confirms the audience's deployment actually answers. Ready
-// engines are not enough: Modelplane routes the gateway to them some minutes
-// later, and until then every request is a 404. Nor is the first answer: the
-// gateway is still taking in the new route, and requests that fail while it
-// does can get either deployment shut out of it for a while. So once the
-// engines are ready, this asks the gateway for a single token from both
-// deployments every few seconds, and marks the audience's as serving once
-// both have answered every time for settleTime.
+// ProbeGateway confirms each of the session's deployments actually answers.
+// Ready engines are not enough: Modelplane routes the gateway to them some
+// minutes later, and until then every request is a 404. Nor is the first
+// answer: the gateway is still taking in the new route, and requests that fail
+// while it does can get any deployment shut out of it for a while. So once a
+// deployment's engines are ready, this asks the gateway for a single token
+// from it and from the optimized one every few seconds, and marks it serving
+// once both have answered every time for settleTime.
 func (s *Server) ProbeGateway(ctx context.Context) {
 	client := &http.Client{Timeout: 20 * time.Second}
 	t := time.NewTicker(3 * time.Second)
 	defer t.Stop()
-	var since time.Time // when the current run of answers began
+	since := map[string]time.Time{} // when each deployment's current run of answers began
+	session := 0
 	for {
 		select {
 		case <-ctx.Done():
@@ -417,27 +422,32 @@ func (s *Server) ProbeGateway(ctx context.Context) {
 		case <-t.C:
 		}
 		st := s.poll.Snapshot()
-		if !st.EnginesReady || st.Serving {
-			since = time.Time{}
-			continue
+		if st.Session != session {
+			since, session = map[string]time.Time{}, st.Session
 		}
-		if !s.answers(ctx, client, "audience") || !s.answers(ctx, client, "optimized") {
-			since = time.Time{}
-			continue
-		}
-		if since.IsZero() {
-			since = time.Now()
-			log.Printf("gateway answers for %s/audience, %s after the votes; waiting for it to settle", choice.Namespace, time.Since(st.Started).Round(time.Second))
-		}
-		if time.Since(since) >= settleTime {
-			log.Printf("gateway settled, %s after the votes", time.Since(st.Started).Round(time.Second))
-			s.poll.MarkServing()
+		for _, d := range st.Deployments {
+			if !d.EnginesReady || d.Serving {
+				delete(since, d.Name)
+				continue
+			}
+			if !s.answers(ctx, client, d.Name) || !s.answers(ctx, client, "optimized") {
+				delete(since, d.Name)
+				continue
+			}
+			if since[d.Name].IsZero() {
+				since[d.Name] = time.Now()
+				log.Printf("gateway answers for %s/%s, %s after the votes; waiting for it to settle", choice.Namespace, d.Name, time.Since(st.Started).Round(time.Second))
+			}
+			if time.Since(since[d.Name]) >= settleTime {
+				log.Printf("gateway settled for %s, %s after the votes", d.Name, time.Since(st.Started).Round(time.Second))
+				s.poll.MarkServing(d.Name)
+			}
 		}
 	}
 }
 
-// settleTime is how long both deployments must keep answering before the
-// audience's counts as serving.
+// settleTime is how long a deployment and the optimized one must keep
+// answering before it counts as serving.
 const settleTime = 20 * time.Second
 
 func (s *Server) answers(ctx context.Context, client *http.Client, target string) bool {

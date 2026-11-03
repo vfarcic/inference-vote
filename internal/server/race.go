@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vfarcic/inference-vote/internal/analysis"
 	"github.com/vfarcic/inference-vote/internal/choice"
 	"github.com/vfarcic/inference-vote/internal/diff"
 	"github.com/vfarcic/inference-vote/internal/engines"
@@ -16,10 +17,11 @@ import (
 )
 
 // The race is the last screen. When the presenter starts it, the load test and
-// the accuracy test start against every deployment that serves; one that comes
-// up later joins when it does. Each deployment gets the same workload for the
-// same length of time, and every number on the screen is a rate or a ratio, so
-// one that joins late still compares fairly, on fewer samples.
+// the accuracy test start against every deployment that serves: the optimized
+// one, the audience's pick, and its opposite. One that comes up later joins
+// when it does. Each deployment gets the same workload, which runs until a
+// reset, and every number on the screen is a rate or a ratio, so one that
+// joins late still compares fairly, on fewer samples.
 type race struct {
 	session int
 	ctx     context.Context
@@ -37,8 +39,6 @@ type raceTarget struct {
 	score *eval.Score
 	chats int // messages the audience sent it during the race
 }
-
-var raceTargets = []string{"optimized", "audience"}
 
 // RunRace starts and stops what the race runs, following the poll: started for
 // a deployment once per session, stopped when the presenter resets.
@@ -71,9 +71,9 @@ func (s *Server) syncRace(ctx context.Context, st poll.State) {
 		s.race.engines = engines.Track(rctx, 10*time.Second, s.engineEndpoints)
 		go s.finalResults(rctx, st.Session)
 	}
-	for _, target := range raceTargets {
-		serving := target == "optimized" || st.Serving
-		if _, started := s.race.targets[target]; started || !serving {
+	for _, side := range lineup(st) {
+		target := side.Name
+		if _, started := s.race.targets[target]; started || !side.Serving {
 			continue
 		}
 		t := &raceTarget{name: target}
@@ -84,7 +84,11 @@ func (s *Server) syncRace(ctx context.Context, st poll.State) {
 			t.score = eval.Start(s.race.ctx, s.cfg.Eval, target)
 		}
 		s.race.targets[target] = t
-		log.Printf("race: started %s (%d agents for %s, %d accuracy problems)", target, s.cfg.Load.Agents, s.cfg.Load.Duration, s.cfg.Eval.Problems)
+		length := "until a reset"
+		if s.cfg.Load.Duration > 0 {
+			length = "for " + s.cfg.Load.Duration.String()
+		}
+		log.Printf("race: started %s (%d agents %s, %d accuracy problems)", target, s.cfg.Load.Agents, length, s.cfg.Eval.Problems)
 		go logWhenDone(s.race.ctx, t)
 	}
 }
@@ -125,24 +129,74 @@ func (s *Server) countChat(target string) {
 	}
 }
 
+// raceSide is one deployment on the race screen, and what it is to the room.
 type raceSide struct {
+	Name     string          `json:"name"`  // the deployment: optimized, audience, or opposite
+	Roles    []string        `json:"roles"` // audience, opposite, optimized: two when one deployment is both
+	Label    string          `json:"label"` // what the screen calls it
 	Config   string          `json:"config"`
 	Summary  []string        `json:"summary"`
 	Serving  bool            `json:"serving"`
 	Load     *load.View      `json:"load,omitempty"`
 	Accuracy *eval.ScoreView `json:"accuracy,omitempty"`
 	Chats    int             `json:"chats"`
-	Pods     []poll.PodState `json:"pods,omitempty"` // the audience's, so a crash shows
+	Pods     []poll.PodState `json:"pods,omitempty"` // the bridge's deployments', so a crash shows
+}
+
+// lineup is the race's sides: the audience's pick, its opposite, and the
+// optimized config, one side per deployment. The pick or its opposite can be
+// exactly the optimized config, and then one deployment plays both roles.
+func lineup(st poll.State) []raceSide {
+	var out []raceSide
+	add := func(name, role, config string) {
+		for i := range out {
+			if out[i].Name == name {
+				out[i].Roles = append(out[i].Roles, role)
+				return
+			}
+		}
+		c, _ := choice.Parse(config)
+		out = append(out, raceSide{Name: name, Roles: []string{role}, Config: config, Summary: c.Describe()})
+	}
+	add(st.Serves(poll.AudienceName), "audience", st.Audience)
+	add(st.Serves(poll.OppositeName), "opposite", st.Opposite)
+	add("optimized", "optimized", st.Optimized)
+	for i := range out {
+		out[i].Label = analysis.Label(out[i].Roles)
+		out[i].Serving = st.Serving(out[i].Name)
+		if d, ok := st.Deployment(out[i].Name); ok {
+			out[i].Pods = d.Progress.Pods
+		}
+	}
+	return out
+}
+
+// pairs are the deployments the screen compares, left against right: the
+// pick against its opposite, and against the optimized config when that is a
+// third deployment.
+func pairs(st poll.State) [][2]string {
+	aud, opp := st.Serves(poll.AudienceName), st.Serves(poll.OppositeName)
+	out := [][2]string{{aud, opp}}
+	if aud != "optimized" && opp != "optimized" {
+		out = append(out, [2]string{aud, "optimized"})
+	}
+	return out
+}
+
+// comparison is two deployments' manifests, line by line.
+type comparison struct {
+	Left  string     `json:"left"`
+	Right string     `json:"right"`
+	Rows  []diff.Row `json:"rows"`
 }
 
 type raceView struct {
-	Started   time.Time  `json:"started"`
-	Ended     *time.Time `json:"ended,omitempty"` // when the last test finished, once all have
-	Optimized raceSide   `json:"optimized"`
-	Audience  raceSide   `json:"audience"`
-	Manifests []diff.Row `json:"manifests"` // optimized on the left, the audience's on the right
-	Results   *results   `json:"results,omitempty"`
-	Swapped   bool       `json:"swapped"` // the room picked the optimized config; the audience side is its opposite
+	Started   time.Time           `json:"started"`
+	Ended     *time.Time          `json:"ended,omitempty"` // when the last test finished, once all have
+	Sides     []raceSide          `json:"sides"`
+	Standings []analysis.Standing `json:"standings"` // who is ahead, right now
+	Manifests []comparison        `json:"manifests"`
+	Results   *results            `json:"results,omitempty"`
 }
 
 // raceState is what the presenter's race screen polls. It is empty outside the
@@ -162,22 +216,24 @@ func (s *Server) raceView() (raceView, bool) {
 	if st.Phase != poll.Race {
 		return raceView{}, false
 	}
-	opt, _ := choice.Parse(st.Optimized)
-	dep, _ := choice.Parse(st.Deployed)
-	v := raceView{
-		Started:   st.RaceStarted,
-		Swapped:   st.Swapped,
-		Optimized: raceSide{Config: st.Optimized, Summary: opt.Describe(), Serving: true},
-		Audience:  raceSide{Config: st.Deployed, Summary: dep.Describe(), Serving: st.Serving, Pods: st.Progress.Pods},
-		Manifests: diff.Lines(
-			strings.Split(choice.YAML("optimized", opt, s.cfg.Options), "\n"),
-			strings.Split(choice.YAML("audience", dep, s.cfg.Options), "\n"),
-		),
+	v := raceView{Started: st.RaceStarted, Sides: lineup(st)}
+	configs := map[string]string{}
+	for _, side := range v.Sides {
+		configs[side.Name] = side.Config
+	}
+	for _, p := range pairs(st) {
+		l, _ := choice.Parse(configs[p[0]])
+		r, _ := choice.Parse(configs[p[1]])
+		v.Manifests = append(v.Manifests, comparison{Left: p[0], Right: p[1], Rows: diff.Lines(
+			strings.Split(choice.YAML(p[0], l, s.cfg.Options), "\n"),
+			strings.Split(choice.YAML(p[1], r, s.cfg.Options), "\n"),
+		)})
 	}
 	s.raceMu.Lock()
 	if s.race != nil {
-		for target, side := range map[string]*raceSide{"optimized": &v.Optimized, "audience": &v.Audience} {
-			t, ok := s.race.targets[target]
+		for i := range v.Sides {
+			side := &v.Sides[i]
+			t, ok := s.race.targets[side.Name]
 			if !ok {
 				continue
 			}
@@ -196,28 +252,30 @@ func (s *Server) raceView() (raceView, bool) {
 		}
 	}
 	s.raceMu.Unlock()
-	v.Ended = raceEnded(v, st.Serving)
+	v.Standings = analysis.Standings(raceOf(v, false))
+	v.Ended = raceEnded(v)
 	return v, true
 }
 
 // raceEnded is when the last test finished, or nil while any still runs. A
-// serving audience deployment whose tests haven't started yet means the race
-// isn't over; one that never served doesn't hold it up.
-func raceEnded(v raceView, audienceServing bool) *time.Time {
-	if v.Optimized.Load == nil || (audienceServing && v.Audience.Load == nil) {
-		return nil
-	}
+// serving deployment whose tests haven't started yet means the race isn't
+// over; one that never served doesn't hold it up. A load test without an end
+// never finishes, so neither does the race: it runs until a reset.
+func raceEnded(v raceView) *time.Time {
 	var last time.Time
-	for _, side := range []raceSide{v.Optimized, v.Audience} {
-		if side.Load == nil {
+	for _, side := range v.Sides {
+		if !side.Serving {
 			continue
 		}
-		if !side.Load.Done || (side.Accuracy != nil && !side.Accuracy.Done) {
+		if side.Load == nil || !side.Load.Done || (side.Accuracy != nil && !side.Accuracy.Done) {
 			return nil
 		}
 		if side.Load.Ended.After(last) {
 			last = side.Load.Ended
 		}
+	}
+	if last.IsZero() {
+		return nil
 	}
 	return &last
 }

@@ -150,15 +150,16 @@ type Pair struct {
 	APIVersion string     `json:"apiVersion"`
 	Kind       string     `json:"kind"`
 	Key        string     `json:"key"`
-	Optimized  string     `json:"optimized,omitempty"` // its real name, empty if only the audience has it
-	Audience   string     `json:"audience,omitempty"`
-	State      string     `json:"state"`          // same, differs, optimized (only), audience (only)
+	Left       string     `json:"left,omitempty"` // its real name, empty if only the right side has it
+	Right      string     `json:"right,omitempty"`
+	State      string     `json:"state"`          // same, differs, left (only), right (only)
 	Rows       []diff.Row `json:"rows,omitempty"` // for differs: the two, line by line, unchanged runs folded
 }
 
-// Compare pairs the two deployments' composed resources by what they are, and
-// diffs the ones that differ.
-func Compare(optimized, audience []Object) []Pair {
+// Compare pairs two deployments' composed resources by what they are, and
+// diffs the ones that differ. Each side's resources are named after its
+// deployment, which the comparison sees past.
+func Compare(leftName string, left []Object, rightName string, right []Object) []Pair {
 	type side struct {
 		obj  Object
 		yaml []string
@@ -171,35 +172,35 @@ func Compare(optimized, audience []Object) []Pair {
 		}
 		return m
 	}
-	opt, aud := index(optimized, "optimized"), index(audience, "audience")
+	l, r := index(left, leftName), index(right, rightName)
 	keys := map[string]bool{}
-	for k := range opt {
+	for k := range l {
 		keys[k] = true
 	}
-	for k := range aud {
+	for k := range r {
 		keys[k] = true
 	}
 	var pairs []Pair
 	for k := range keys {
-		o, inO := opt[k]
-		a, inA := aud[k]
+		o, inL := l[k]
+		a, inR := r[k]
 		ref := o.obj
-		if !inO {
+		if !inL {
 			ref = a.obj
 		}
 		p := Pair{APIVersion: ref.APIVersion(), Kind: ref.Kind(), Key: strings.SplitN(k, " ", 3)[2]}
 		switch {
-		case inO && inA:
-			p.Optimized, p.Audience = o.obj.Name(), a.obj.Name()
+		case inL && inR:
+			p.Left, p.Right = o.obj.Name(), a.obj.Name()
 			if strings.Join(o.yaml, "\n") == strings.Join(a.yaml, "\n") {
 				p.State = "same"
 			} else {
 				p.State, p.Rows = "differs", Fold(diff.Lines(o.yaml, a.yaml), 2)
 			}
-		case inO:
-			p.Optimized, p.State = o.obj.Name(), "optimized"
+		case inL:
+			p.Left, p.State = o.obj.Name(), "left"
 		default:
-			p.Audience, p.State = a.obj.Name(), "audience"
+			p.Right, p.State = a.obj.Name(), "right"
 		}
 		pairs = append(pairs, p)
 	}

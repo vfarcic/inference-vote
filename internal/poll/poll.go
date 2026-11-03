@@ -22,11 +22,11 @@ type Phase string
 const (
 	Lobby     Phase = "lobby"     // QR code on screen, nothing open yet
 	Voting    Phase = "voting"    // Question is open, its tally live on the presenter's screen
-	Deploying Phase = "deploying" // The winning config has been handed to the bridge
+	Deploying Phase = "deploying" // The winning config and its opposite have been handed to the bridge
 	Race      Phase = "race"      // Load test and accuracy run on whatever serves; the audience chats
 )
 
-// Progress is what the screen shows while the audience's configuration comes up.
+// Progress is what the screen shows while a deployment comes up.
 // The control plane half comes from the bridge, the pod half from the cluster the
 // app runs on.
 type Progress struct {
@@ -46,6 +46,28 @@ type PodState struct {
 	Reason   string `json:"reason,omitempty"`   // why it last crashed, from its log
 }
 
+// The deployments the bridge owns. The optimized one is the setup's.
+const (
+	AudienceName = "audience" // what the votes chose
+	OppositeName = "opposite" // every answer flipped, so the room has something it can beat
+)
+
+// Deployment is one of the bridge's deployments in this session: the
+// audience's pick, or its opposite. When either is the optimized config, it
+// isn't deployed again: the optimized deployment serves it.
+type Deployment struct {
+	Name     string   `json:"name"` // audience or opposite
+	Config   string   `json:"config"`
+	Summary  []string `json:"summary"`
+	Progress Progress `json:"progress"`
+	// EnginesReady is every engine pod ready; Serving is the gateway answering
+	// for the deployment, which Modelplane's route makes possible some minutes
+	// later. Neither is a phase: the presenter can start the race before either,
+	// or without them at all.
+	EnginesReady bool `json:"enginesReady"`
+	Serving      bool `json:"serving"`
+}
+
 // State is a snapshot, safe to serialize to anyone.
 type State struct {
 	Version   int               `json:"version"`
@@ -55,22 +77,47 @@ type State struct {
 	Tally     [3][2]int         `json:"tally"`
 	Winners   [3]choice.Option  `json:"winners"`
 	Audience  string            `json:"audience,omitempty"` // what the votes chose
-	Deployed  string            `json:"deployed,omitempty"` // what is actually deployed against the optimized one
+	Opposite  string            `json:"opposite,omitempty"` // every answer of it flipped
 	Optimized string            `json:"optimized"`
-	Swapped   bool              `json:"swapped"` // the audience picked the optimized config, so the opposite is deployed
-	Summary   []string          `json:"summary,omitempty"`
-	Progress  Progress          `json:"progress"`
-	Started   time.Time         `json:"started,omitempty"` // when the votes were applied
-	// EnginesReady is every engine pod ready; Serving is the gateway answering
-	// for the deployment, which Modelplane's route makes possible some minutes
-	// later. Neither is a phase: the presenter can start the race before either,
-	// or without them at all.
-	EnginesReady bool      `json:"enginesReady"`
-	Serving      bool      `json:"serving"`
-	RaceStarted  time.Time `json:"raceStarted,omitempty"`
+	// Which of the two is the optimized config, already running, so not
+	// deployed again. At most one is: they differ in every answer.
+	AudienceIsOptimized bool         `json:"audienceIsOptimized"`
+	OppositeIsOptimized bool         `json:"oppositeIsOptimized"`
+	Deployments         []Deployment `json:"deployments,omitempty"` // in that order, without the one that is the optimized config
+	Started             time.Time    `json:"started,omitempty"`     // when the votes were applied
+	RaceStarted         time.Time    `json:"raceStarted,omitempty"`
 	// Session changes on every reset, so whatever runs once per session (the
 	// race) knows a new one has begun.
 	Session int `json:"session"`
+}
+
+// Serves is the deployment that serves a role, "audience" or "opposite":
+// its own, or the optimized one when it is the optimized config.
+func (s State) Serves(role string) string {
+	if (role == AudienceName && s.AudienceIsOptimized) || (role == OppositeName && s.OppositeIsOptimized) {
+		return "optimized"
+	}
+	return role
+}
+
+// Deployment returns one of the session's deployments by name.
+func (s State) Deployment(name string) (Deployment, bool) {
+	for _, d := range s.Deployments {
+		if d.Name == name {
+			return d, true
+		}
+	}
+	return Deployment{}, false
+}
+
+// Serving reports whether a deployment answers through the gateway. The
+// optimized one always does: the setup waited for it.
+func (s State) Serving(name string) bool {
+	if name == "optimized" {
+		return true
+	}
+	d, ok := s.Deployment(name)
+	return ok && d.Serving
 }
 
 // Poll is safe for concurrent use.
@@ -101,11 +148,15 @@ func (p *Poll) reset() {
 	}
 }
 
-// Snapshot returns the current state.
+// Snapshot returns the current state. The deployments are copied: reports
+// change them in place. What they hold, pods and conditions, is only ever
+// replaced, so a shallow copy is enough.
 func (p *Poll) Snapshot() State {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.state
+	s := p.state
+	s.Deployments = slices.Clone(s.Deployments)
+	return s
 }
 
 // VoteOf returns what a voter picked on a question, if anything.
@@ -210,7 +261,7 @@ func (p *Poll) Next() bool {
 			p.apply()
 		}
 	case Deploying:
-		// Whether or not the audience's deployment serves yet: the talk's time
+		// Whether or not the audience's deployments serve yet: the talk's time
 		// is fixed, a deployment's isn't.
 		s.Phase, s.RaceStarted = Race, time.Now()
 	default:
@@ -223,12 +274,18 @@ func (p *Poll) Next() bool {
 func (p *Poll) apply() {
 	s := &p.state
 	audience := choice.Config(s.Winners)
-	deployed := audience
-	if audience == p.optimized {
-		deployed, s.Swapped = audience.Opposite(), true
+	opposite := audience.Opposite()
+	s.Audience, s.Opposite = audience.String(), opposite.String()
+	s.AudienceIsOptimized, s.OppositeIsOptimized = audience == p.optimized, opposite == p.optimized
+	s.Deployments = nil
+	for _, d := range []struct {
+		name string
+		c    choice.Config
+	}{{AudienceName, audience}, {OppositeName, opposite}} {
+		if d.c != p.optimized {
+			s.Deployments = append(s.Deployments, Deployment{Name: d.name, Config: d.c.String(), Summary: d.c.Describe()})
+		}
 	}
-	s.Audience, s.Deployed = audience.String(), deployed.String()
-	s.Summary = deployed.Describe()
 	s.Phase = Deploying
 	s.Started = time.Now()
 }
@@ -242,54 +299,77 @@ func (p *Poll) Reset() {
 	p.changed()
 }
 
-// Desired is what the bridge should apply, if anything yet.
-func (p *Poll) Desired() (choice.Config, bool) {
+// Desired is what the bridge should apply, by deployment name, if anything yet.
+func (p *Poll) Desired() (map[string]choice.Config, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.state.Deployed == "" {
-		return choice.Config{}, false
+	if p.state.Audience == "" {
+		return nil, false
 	}
-	c, err := choice.Parse(p.state.Deployed)
-	return c, err == nil
+	out := map[string]choice.Config{}
+	for _, d := range p.state.Deployments {
+		if c, err := choice.Parse(d.Config); err == nil {
+			out[d.Name] = c
+		}
+	}
+	return out, true
 }
 
-// ReportControlPlane records what the bridge saw on the control plane. The
-// bridge reports every few seconds; phones hear about it only when something
-// in the report changed, since every change redraws their screens.
-func (p *Poll) ReportControlPlane(applied bool, ready, total int, conditions []string) {
+// deployment returns one of the session's deployments to change. It must be
+// called with the lock held.
+func (p *Poll) deployment(name string) *Deployment {
+	for i := range p.state.Deployments {
+		if p.state.Deployments[i].Name == name {
+			return &p.state.Deployments[i]
+		}
+	}
+	return nil
+}
+
+// ReportControlPlane records what the bridge saw on the control plane for a
+// deployment. The bridge reports every few seconds; phones hear about it only
+// when something in the report changed, since every change redraws their
+// screens.
+func (p *Poll) ReportControlPlane(name string, applied bool, ready, total int, conditions []string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	pr := &p.state.Progress
+	d := p.deployment(name)
+	if d == nil {
+		return
+	}
+	pr := &d.Progress
 	pr.ReportedAt = time.Now()
 	if pr.Applied == applied && pr.ReplicasReady == ready && pr.ReplicasTotal == total && slices.Equal(pr.Conditions, conditions) {
 		return
 	}
 	pr.Applied, pr.ReplicasReady, pr.ReplicasTotal, pr.Conditions = applied, ready, total, conditions
-	p.promote()
+	p.promote(d)
 	p.changed()
 }
 
-// ReportPods records the engine pods as the app's own cluster sees them.
-func (p *Poll) ReportPods(pods []PodState) {
+// ReportPods records a deployment's engine pods as the app's own cluster sees
+// them.
+func (p *Poll) ReportPods(name string, pods []PodState) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if slices.Equal(p.state.Progress.Pods, pods) {
+	d := p.deployment(name)
+	if d == nil || slices.Equal(d.Progress.Pods, pods) {
 		return
 	}
-	p.state.Progress.Pods = pods
-	p.promote()
+	d.Progress.Pods = pods
+	p.promote(d)
 	p.changed()
 }
 
-// promote marks the audience's engines ready once every engine pod is, or the
+// promote marks a deployment's engines ready once every engine pod is, or the
 // control plane says the replica is. Either is enough: the pods are the faster
 // signal, the replica the authoritative one. Ready engines are not yet serving:
 // that takes the gateway's route, which MarkServing confirms.
-func (p *Poll) promote() {
-	if p.state.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
+func (p *Poll) promote(d *Deployment) {
+	if d.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
 		return
 	}
-	pr := p.state.Progress
+	pr := d.Progress
 	podsReady := len(pr.Pods) > 0
 	for _, pod := range pr.Pods {
 		if pod.Step != "ready" {
@@ -297,19 +377,20 @@ func (p *Poll) promote() {
 		}
 	}
 	if podsReady || (pr.ReplicasTotal > 0 && pr.ReplicasReady == pr.ReplicasTotal) {
-		p.state.EnginesReady = true
+		d.EnginesReady = true
 	}
 }
 
-// MarkServing records that the gateway answered for the audience's deployment.
-// Once serving, it stays so for the session: a late crash shows in the pods,
-// not by taking the race away.
-func (p *Poll) MarkServing() {
+// MarkServing records that the gateway answered for a deployment. Once
+// serving, it stays so for the session: a late crash shows in the pods, not
+// by taking the race away.
+func (p *Poll) MarkServing(name string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.state.Serving || !p.state.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
+	d := p.deployment(name)
+	if d == nil || d.Serving || !d.EnginesReady || (p.state.Phase != Deploying && p.state.Phase != Race) {
 		return
 	}
-	p.state.Serving = true
+	d.Serving = true
 	p.changed()
 }

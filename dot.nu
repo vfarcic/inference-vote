@@ -399,14 +399,15 @@ def "resources role" [] {
 #
 # Modelplane counts capacity in whole nodes, not GPUs: every engine pod that
 # claims a GPU takes a node to itself. Two copies take two nodes, one engine
-# split across two GPUs takes one. The audience may pick either, so each pool
-# has room for the audience's worst case on top of what the optimized config
-# takes. On Google every node has two L4s, so one pool serves both; AWS has no
-# two-L4 instance, so copies get one-L4 nodes and the split engine a four-L4 one.
+# split across two GPUs takes one. The audience's pick and its opposite always
+# answer question 2 differently, so together they take one split engine and two
+# copies, three nodes, on top of what the optimized config takes. On Google every
+# node has two L4s, so one pool serves both; AWS has no two-L4 instance, so
+# copies get one-L4 nodes and the split engine a four-L4 one.
 def "pool sizes" [provider: string, optimized: string] {
     let copies = ($optimized | str substring 1..1) == "B"
     if $provider == "google" {
-        { gpu-l4: (2 + (if $copies { 2 } else { 1 })) }
+        { gpu-l4: (3 + (if $copies { 2 } else { 1 })) }
     } else {
         { copies: (2 + (if $copies { 2 } else { 0 })), one-engine: (1 + (if $copies { 0 } else { 1 })) }
     }
@@ -694,14 +695,14 @@ def "main measure" [
     $rows
 }
 
-# Clears the audience's deployment and every vote, ready for the talk
+# Clears the audience's deployments and every vote, ready for the talk
 #
 # The votes are cleared through the presenter API rather than by restarting the
 # voting app: the app keeps its certificate across restarts, but there is no
 # reason to risk it. Restarting the bridge drops its memory of what it last
 # applied.
 def "main reset" [] {
-    kubectl --namespace ml-team delete modeldeployment audience --ignore-not-found --wait=true
+    kubectl --namespace ml-team delete modeldeployment audience opposite --ignore-not-found --wait=true
     (
         http post --headers { Authorization: $"Bearer ($env.PRESENTER_TOKEN)" }
             $"https://($env.DOMAIN)/api/presenter/reset" ""
